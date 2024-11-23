@@ -26,6 +26,7 @@
 %token EQ
 %token COLON
 %token ARROW
+%token SEMICOLON
 %token EOF
 
 %token <int> INTV
@@ -39,6 +40,8 @@
 
 s :
     term EOF
+      { $1 }
+    |term SEMICOLON EOF
       { $1 }
 
 term :
