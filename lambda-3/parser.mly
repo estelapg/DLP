@@ -76,7 +76,7 @@ appTerm :
 pathTerm :
     | pathTerm DOT INTV
         { TmProjection ($1, (string_of_int $3))}
-    | pathTerm DOT STRINGV
+    | pathTerm DOT IDV
         { TmProjection ($1, $3)}
     | atomicTerm
         { $1 }
@@ -99,6 +99,8 @@ atomicTerm :
     {TmString $1}
 | LBRACE tupleTerm RBRACE
     { TmTuple $2 }
+| LBRACE recordTerm RBRACE
+    { TmRecord $2}
 
 
 ty :
@@ -116,9 +118,28 @@ atomicTy :
       { TyNat }
   | STRING 
     { TyString}
+  | LBRACE recty RBRACE
+      { TyRecord $2 }
 
 tupleTerm:
     | term 
         {[$1]}
     | term COMMA tupleTerm 
         {$1::$3}
+
+recordTerm :
+    | {[]}
+    | nonemptyrec {$1}
+
+nonemptyrec:
+    | IDV EQ term {[$1,$3]}
+    | IDV EQ term COMMA nonemptyrec {($1,$3)::$5}
+
+
+recty: 
+    | {[]}
+    |nonemptyrecTY {$1}
+
+nonemptyrecTY:
+    | IDV COLON ty {[$1,$3]}
+    | IDV COLON ty COMMA nonemptyrecTY {($1,$3)::$5}

@@ -1,13 +1,11 @@
-
 type ty =
     TyBool
   | TyNat
   | TyString
   | TyArr of ty * ty
   | TyTuple of ty list
+  | TyRecord of (string * ty) list
 ;;
-
-
 
 type term =
     TmTrue
@@ -26,6 +24,7 @@ type term =
   | TmConcat of term * term
   | TmTuple of term list
   | TmProjection of term * string 
+  | TmRecord of (string * term) list
 ;;
 
 type command = 

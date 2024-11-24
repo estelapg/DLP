@@ -1,4 +1,4 @@
-(*CONTEXTO GLOBAL*)
+(*************CONTEXTO GLOBAL**************)
  y = 3;;
     x = 6;;
     id = lambda x : Bool. x
@@ -37,3 +37,17 @@ con tipos no me funciona
 
  >> tuple = {f 3, g "hola", "mundo"};;
  tuple : {Nat, String, String} = {3, "hola", "mundo"}
+
+
+ (************REGISTROS**************)
+ >> a=5;;
+a : Nat = 5
+>> b={x=31,y=a};;
+b : {x:Nat,y:Nat} = {x : 31, y : 5}
+>> b.x;;
+- : Nat = 31
+>> test1 = {x = 2, y = "hola", z = 77};;
+test1 : {x:Nat,y:String,z:Nat} = {x : 2, y : "hola", z : 77}
+>> test1.y;;
+- : String = "hola"
+>> 

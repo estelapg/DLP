@@ -7,6 +7,7 @@ type ty =
   | TyString
   | TyArr of ty * ty
   | TyTuple of ty list
+  | TyRecord of (string * ty) list
 ;;
 
 type term =
@@ -26,6 +27,7 @@ type term =
   | TmConcat of term * term 
   | TmTuple of term list
   | TmProjection of term * string
+  | TmRecord of (string * term) list
 ;;
 
 type command = 
@@ -92,6 +94,12 @@ let rec string_of_ty ty = match ty with
       | (ty::[]) -> (string_of_ty ty)
       | (ty::t)  -> (string_of_ty ty) ^ ", " ^ print t
     in "{" ^ (print tyr) ^ "}"
+  | TyRecord tyr ->
+    let rec print = function
+      [] -> ""
+      |((s,ty)::[]) -> s ^ ":" ^ (string_of_ty ty)
+      |((s,ty)::t) -> s ^ ":" ^ (string_of_ty ty) ^ "," ^ print t
+    in "{" ^ (print tyr) ^ "}" 
 ;;
 
 exception Type_error of string
@@ -184,17 +192,25 @@ let rec typeof ctx tm = match tm with
         [] -> []
         | (tm::t) -> ((typeof ctx tm)::(get_types t))
     in TyTuple (get_types tml)
-  (* T-Projection *)
-  | TmProjection (t, n) ->
+
+        (* T-Record*)  
+  | TmRecord tmr ->
+    let rec get_types = function 
+      [] -> []
+      |((s,tm)::t) -> ((s,typeof ctx tm)::(get_types t))
+    in TyRecord (get_types tmr) 
+
+        (* T-Projection *)
+  | TmProjection(t, n) ->
     (match (typeof ctx t, n) with
-    | (TyTuple (tyr), s) ->
-      (try List.nth tyr (int_of_string s - 1) with
-     _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
-    | _ -> raise (Type_error "Projection is only supported on tuples"))
-
-;;
-
-
+      | (TyRecord (tyr), s) ->
+        (try List.assoc s tyr with
+         _ -> raise (Type_error ("cannot project "^ s ^ ",this key does not exist in the record"))) 
+        | (TyTuple (tyr), s) ->
+          (try List.nth tyr (int_of_string s - 1) with
+             _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
+            | _ -> raise (Type_error "Projection is only supported on tuples"))
+    ;;
 (* TERMS MANAGEMENT (EVALUATION) *)
 
 let rec string_of_term = function
@@ -232,12 +248,20 @@ let rec string_of_term = function
       "\"" ^ s ^ "\""
   | TmConcat (t1, t2) -> 
       "(concat " ^ string_of_term t1 ^ " " ^ string_of_term t2 ^")"
-  | TmTuple (list) ->
+  | TmTuple list ->
     let rec aux = function
       | [] -> ""
       | [h] -> string_of_term h
       | h::t -> string_of_term h ^ ", " ^ aux t
     in "{" ^ aux list ^ "}"
+
+  | TmRecord (list) ->
+      let rec aux = function
+        | [] -> ""
+        | [(i, h)] -> i ^ " : " ^ string_of_term h
+        | (i, h)::t -> i ^ " : " ^ string_of_term h ^ ", " ^ aux t
+      in "{" ^ aux list ^ "}"
+
   | TmProjection (t,s) ->
     string_of_term t ^ "." ^ s
 ;;
@@ -287,6 +311,13 @@ let rec free_vars tm = match tm with
         | h::[] -> free_vars h
         | h::t -> lunion (free_vars h) (aux t)
       in aux t
+  | TmRecord t ->
+    let rec aux list = match list with
+      | (i, h)::[] -> free_vars h
+      | (i, h)::t -> lunion (free_vars h) (aux t)
+      | [] -> []
+    in aux t
+
   | TmProjection (t,_) ->
       free_vars t
 ;;
@@ -339,6 +370,13 @@ let rec subst x s tm = match tm with
       [] -> []
       |(tm::t) -> (subst x s tm)::(subs_rcd t)
     in TmTuple (subs_rcd tml)
+
+  | TmRecord tmr ->
+      let rec subst_rec = function 
+        [] -> []
+        |((st,tm)::t) -> (st,(subst x s tm))::(subst_rec t)
+      in TmRecord (subst_rec tmr)
+       
   | TmProjection(t,n) ->
         TmProjection  (subst x s t, n)
 ;;
@@ -356,6 +394,7 @@ let rec isval tm = match tm with
   | TmString _ -> true
   | t when isnumericval t -> true
   | TmTuple list -> List.for_all(fun t -> isval(t)) list
+  | TmRecord list -> List.for_all (fun t -> isval t) (List.map snd list)
   | _ -> false
 ;;
 
@@ -455,17 +494,31 @@ let rec eval1 ctx tm = match tm with
 
   | TmVar s ->    (*contexto global*)
     getvbinding ctx s 
-  | TmProjection (TmTuple l as v , s) when isval (v) ->
-      List.nth l (int_of_string s - 1)
-  | TmProjection (t,n) ->
-      TmProjection ((eval1 ctx t), n)
-  | TmTuple tml ->
+
+    (* E-Projection *)    
+  | TmProjection (TmTuple list as v, s) when isval v ->
+      List.nth list (int_of_string s - 1)
+    
+  | TmProjection (TmRecord list as v, s) when isval v ->
+      List.assoc s list
+    
+  | TmProjection (t, s) ->
+      let t' = eval1 ctx t in TmProjection (t', s)
+  
+  | TmTuple tml -> (*tuplas*)
     let rec eval_rcd = function
       [] -> raise NoRuleApplies
       |(tm::t) when isval tm -> tm::(eval_rcd t)
      |(tm::t) -> (eval1 ctx tm)::t
     in TmTuple (eval_rcd tml)
-  
+
+  | TmRecord tmr ->
+      let rec eval_rec = function
+        [] -> raise NoRuleApplies
+        |((s,tm)::t) when isval tm -> (s,tm)::(eval_rec t)
+        |((s,tm)::t) -> (s,(eval1 ctx tm))::t
+      in TmRecord (eval_rec tmr)
+
 
   | _ ->
       raise NoRuleApplies
