@@ -6,6 +6,7 @@ type ty =
   | TyNat
   | TyString
   | TyArr of ty * ty
+  | TyTuple of ty list
 ;;
 
 type term =
@@ -23,6 +24,8 @@ type term =
   | TmFix of term 
   | TmString of string 
   | TmConcat of term * term 
+  | TmTuple of term list
+  | TmProjection of term * string
 ;;
 
 type command = 
@@ -83,6 +86,12 @@ let rec string_of_ty ty = match ty with
       "(" ^ string_of_ty ty1 ^ ")" ^ " -> " ^ "(" ^ string_of_ty ty2 ^ ")"
   | TyString ->
     "String"
+  | TyTuple tyr ->
+    let rec print = function
+      [] -> ""
+      | (ty::[]) -> (string_of_ty ty)
+      | (ty::t)  -> (string_of_ty ty) ^ ", " ^ print t
+    in "{" ^ (print tyr) ^ "}"
 ;;
 
 exception Type_error of string
@@ -169,6 +178,20 @@ let rec typeof ctx tm = match tm with
   |TmConcat (t1, t2) -> 
     if typeof ctx t1 = TyString && typeof ctx t2 = TyString then TyString 
     else raise (Type_error "argument o concsat is not a string")
+        (* T-Tuple *)
+  | TmTuple tml ->
+    let rec get_types = function
+        [] -> []
+        | (tm::t) -> ((typeof ctx tm)::(get_types t))
+    in TyTuple (get_types tml)
+  (* T-Projection *)
+  | TmProjection (t, n) ->
+    (match (typeof ctx t, n) with
+    | (TyTuple (tyr), s) ->
+      (try List.nth tyr (int_of_string s - 1) with
+     _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
+    | _ -> raise (Type_error "Projection is only supported on tuples"))
+
 ;;
 
 
@@ -209,6 +232,14 @@ let rec string_of_term = function
       "\"" ^ s ^ "\""
   | TmConcat (t1, t2) -> 
       "(concat " ^ string_of_term t1 ^ " " ^ string_of_term t2 ^")"
+  | TmTuple (list) ->
+    let rec aux = function
+      | [] -> ""
+      | [h] -> string_of_term h
+      | h::t -> string_of_term h ^ ", " ^ aux t
+    in "{" ^ aux list ^ "}"
+  | TmProjection (t,s) ->
+    string_of_term t ^ "." ^ s
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -250,6 +281,14 @@ let rec free_vars tm = match tm with
     []
   | TmConcat (t1, t2) ->
     lunion (free_vars t1) (free_vars t2)
+  | TmTuple t ->
+      let rec aux list = match list with
+        | [] -> []
+        | h::[] -> free_vars h
+        | h::t -> lunion (free_vars h) (aux t)
+      in aux t
+  | TmProjection (t,_) ->
+      free_vars t
 ;;
 
 let rec fresh_name x l =
@@ -295,6 +334,13 @@ let rec subst x s tm = match tm with
     TmString st
   | TmConcat (t1, t2) -> 
     TmConcat (subst x s t1, subst x s t2)
+  | TmTuple tml ->
+    let rec subs_rcd = function
+      [] -> []
+      |(tm::t) -> (subst x s tm)::(subs_rcd t)
+    in TmTuple (subs_rcd tml)
+  | TmProjection(t,n) ->
+        TmProjection  (subst x s t, n)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -309,6 +355,7 @@ let rec isval tm = match tm with
   | TmAbs _ -> true
   | TmString _ -> true
   | t when isnumericval t -> true
+  | TmTuple list -> List.for_all(fun t -> isval(t)) list
   | _ -> false
 ;;
 
@@ -408,7 +455,17 @@ let rec eval1 ctx tm = match tm with
 
   | TmVar s ->    (*contexto global*)
     getvbinding ctx s 
-
+  | TmProjection (TmTuple l as v , s) when isval (v) ->
+      List.nth l (int_of_string s - 1)
+  | TmProjection (t,n) ->
+      TmProjection ((eval1 ctx t), n)
+  | TmTuple tml ->
+    let rec eval_rcd = function
+      [] -> raise NoRuleApplies
+      |(tm::t) when isval tm -> tm::(eval_rcd t)
+     |(tm::t) -> (eval1 ctx tm)::t
+    in TmTuple (eval_rcd tml)
+  
 
   | _ ->
       raise NoRuleApplies

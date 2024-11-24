@@ -22,6 +22,9 @@
 
 %token LPAREN
 %token RPAREN
+%token LBRACE
+%token RBRACE
+%token COMMA
 %token DOT
 %token EQ
 %token COLON
@@ -57,18 +60,26 @@ term :
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
 
 appTerm :
-    atomicTerm
+    pathTerm
       { $1 }
-  | SUCC atomicTerm
+  | SUCC pathTerm
       { TmSucc $2 }
-  | PRED atomicTerm
+  | PRED pathTerm
       { TmPred $2 }
-  | ISZERO atomicTerm
+  | ISZERO pathTerm
       { TmIsZero $2 }
-  | CONCAT atomicTerm atomicTerm
+  | CONCAT pathTerm pathTerm
       {TmConcat ($2, $3) } 
-  | appTerm atomicTerm
+  | appTerm pathTerm
       { TmApp ($1, $2) }
+
+pathTerm :
+    | pathTerm DOT INTV
+        { TmProjection ($1, (string_of_int $3))}
+    | pathTerm DOT STRINGV
+        { TmProjection ($1, $3)}
+    | atomicTerm
+        { $1 }
 
 atomicTerm :
     LPAREN term RPAREN
@@ -86,6 +97,9 @@ atomicTerm :
         in f $1 }
  | STRINGV 
     {TmString $1}
+| LBRACE tupleTerm RBRACE
+    { TmTuple $2 }
+
 
 ty :
     atomicTy
@@ -103,3 +117,8 @@ atomicTy :
   | STRING 
     { TyString}
 
+tupleTerm:
+    | term 
+        {[$1]}
+    | term COMMA tupleTerm 
+        {$1::$3}

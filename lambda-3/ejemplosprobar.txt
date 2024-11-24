@@ -9,3 +9,31 @@
     in sum x y;;
 
 con tipos no me funciona
+
+
+
+(*******************TUPLAS*****************)
+ >> x = {1,2,3,"hola"};;
+ x : {Nat, Nat, Nat, String} = {1, 2, 3, "hola"}
+ >> y = {"uno","dos"};;
+ y : {String, String} = {"uno", "dos"}
+
+ >> tuple2 = {x,y};;
+ tuple2 : {{Nat, Nat, Nat, String}, {String, String}} = {{1, 2, 3, "hola"}, {"uno", "dos"}}
+
+>> tuple2.2;;
+- : {String, String} = {"uno", "dos"}
+>> tuple2.1;;
+- : {Nat, Nat, Nat, String} = {1, 2, 3, "hola"}
+>> tuple2.1.1;;
+- : Nat = 1
+
+
+ LOS SIGUIENTES NO FUNCIONAN, NECESITO LO DE LOS TIPOS:
+  >> f = Lx:Nat.x;;
+ f : (Nat) -> (Nat) = (lambda x:Nat. x)
+ >> g = Lx:String.x;;
+ g : (String) -> (String) = (lambda x:String. x)
+
+ >> tuple = {f 3, g "hola", "mundo"};;
+ tuple : {Nat, String, String} = {3, "hola", "mundo"}

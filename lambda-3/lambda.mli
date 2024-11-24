@@ -4,6 +4,7 @@ type ty =
   | TyNat
   | TyString
   | TyArr of ty * ty
+  | TyTuple of ty list
 ;;
 
 
@@ -23,6 +24,8 @@ type term =
   | TmFix of term
   | TmString of string 
   | TmConcat of term * term
+  | TmTuple of term list
+  | TmProjection of term * string 
 ;;
 
 type command = 
