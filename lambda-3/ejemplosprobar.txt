@@ -1,0 +1,11 @@
+(*CONTEXTO GLOBAL*)
+ y = 3;;
+    x = 6;;
+    id = lambda x : Bool. x
+    succ y;;
+    (lambda n : Nat. pred n) x;;
+    letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum x y;;
+
+con tipos no me funciona
