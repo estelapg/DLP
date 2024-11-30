@@ -105,8 +105,6 @@ pathTerm :
 atomicTerm :
     LPAREN term RPAREN
       { $2 }
-  | COMMA term
-    { $2 }
   | TRUE
       { TmTrue }
   | FALSE

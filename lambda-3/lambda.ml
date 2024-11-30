@@ -127,6 +127,22 @@ let rec string_of_ty ty = match ty with
   
 ;;
 
+
+let rec subtypeof tm1 tm2 = match (tm1, tm2) with
+  | (TyArr(s1, s2), TyArr(t1, t2)) -> ((subtypeof s1 t1) && (subtypeof t2 s2))
+  | (TyRecord(l1), TyRecord(l2)) ->
+    let check (x, ty) l =
+      try 
+        subtypeof ty (List.assoc x l)
+    with _ -> false
+    in let rec contains l1 l2 = match l1 with
+      | [] -> true
+      | (h::t) -> (&&) (check h l2) (contains t l2)
+      in contains l1 l2
+  | (tm1, tm2) -> tm1 = tm2
+;;
+
+
 let rec typeof ctx tm = match tm with
     (* T-True *)
     TmTrue ->
@@ -182,7 +198,7 @@ let rec typeof ctx tm = match tm with
       let tyT2 = typeof ctx t2 in
       (match tyT1 with
            TyArr (tyT11, tyT12) ->
-             if tyT2 = tyT11 then tyT12
+              if subtypeof tyT11 tyT2 then tyT12
              else raise (Type_error "parameter type mismatch")
          | _ -> raise (Type_error "arrow type expected"))
 
@@ -197,7 +213,7 @@ let rec typeof ctx tm = match tm with
       let tyT1 = typeof ctx t1 in
       (match tyT1 with
         TyArr (tyT11, tyT12) ->
-          if tyT11 = tyT12 then tyT12
+          if subtypeof tyT11 tyT12 then tyT12
           else raise (Type_error "result of body not compatible with domain")
       | _ -> raise (Type_error "arrow type expected"))
 
@@ -234,11 +250,13 @@ let rec typeof ctx tm = match tm with
           (try List.nth tyr (int_of_string s - 1) with
              _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
             | _ -> raise (Type_error "Projection is only supported on tuples"))
+
   | TmCons(ty,h,t) ->
       let tyTh = typeof ctx h in 
         let tyTt = typeof ctx t in 
-            if tyTh = tyTt then TyList(ty)
-            else TyList(ty)
+           if (subtypeof tyTh ty) && (subtypeof tyTt (TyList(ty))) then 
+              TyList(ty) else raise (Type_error "elements of list have 
+            different types")
   | TmHead (ty,t) ->
       if typeof ctx t = TyList(ty) then ty
       else raise (Type_error ("head is not a List of" ^ (string_of_ty ty)))
@@ -578,6 +596,13 @@ let rec eval1 ctx tm = match tm with
 
   | TmVar s ->    (*contexto global*)
     getvbinding ctx s 
+
+
+  (* |TmPro (TmReg l as v , s) when isval(v) -> 
+    List.assoc s l 
+  |TmPro (TmReg (tmr), n) ->
+     List.assoc n tmr 
+      *)
 
     (* E-Projection *)    
   | TmProjection (TmTuple list as v, s) when isval v ->

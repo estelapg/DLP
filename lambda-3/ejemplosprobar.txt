@@ -188,3 +188,21 @@ in append lst1 lst2;;
 - : List[Nat] = cons[Nat:2,cons[Nat:3,cons[Nat:4,cons[Nat:5,nil[Nat]]]]]
 
 (**********2.9-SUBTIPADO********)
+
+
+Evaluator of lambda expressions...
+>> a = {x = 1, y = 1, z = {x = 1}};;
+a : {x:Nat,y:Nat,z:{x:Nat}} = {x : 1, y : 1, z : {x : 1}}
+
+>> b = {x = 1, y = 1, z = a};;
+b : {x:Nat,y:Nat,z:{x:Nat,y:Nat,z:{x:Nat}}} = {x : 1, y : 1, z : {x : 1, y : 1, z : {x : 1}}}
+
+>> let idr = lambda r:{}. r in idr {x=0, y=1};;
+- : {} = {x : 0, y : 1}
+
+>> a = {x=1, y=1, z={x=1}};;
+a : {x:Nat,y:Nat,z:{x:Nat}} = {x : 1, y : 1, z : {x : 1}}
+
+>> b = {x=1, y=1, z=a};;
+b : {x:Nat,y:Nat,z:{x:Nat,y:Nat,z:{x:Nat}}} = {x : 1, y : 1, z : {x : 1, y : 1, z : {x : 1}}}
+
