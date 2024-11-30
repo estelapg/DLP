@@ -8,6 +8,7 @@ type ty =
   | TyArr of ty * ty
   | TyTuple of ty list
   | TyRecord of (string * ty) list
+
 ;;
 
 type term =
@@ -33,6 +34,7 @@ type term =
 type command = 
   Eval of term 
 | Bind of string * term   
+| TBind of string * ty
 | Quit 
 ;;
 
@@ -76,6 +78,19 @@ let getvbinding ctx s =
 
 ;;
 
+exception Type_error of string
+;; 
+
+
+let rec base_ty ctx ty = match ty with
+  TyBool -> TyBool
+  | TyNat -> TyNat
+  | TyString -> TyString
+  | TyArr (ty1, ty2) -> TyArr (base_ty ctx ty1, base_ty ctx ty2)
+  | TyTuple tys -> TyTuple (List.map (base_ty ctx) tys)
+  | TyRecord tys -> TyRecord (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tys)
+;;
+
 
 (* TYPE MANAGEMENT (TYPING) *)
 
@@ -100,9 +115,6 @@ let rec string_of_ty ty = match ty with
       |((s,ty)::[]) -> s ^ ":" ^ (string_of_ty ty)
       |((s,ty)::t) -> s ^ ":" ^ (string_of_ty ty) ^ "," ^ print t
     in "{" ^ (print tyr) ^ "}" 
-;;
-
-exception Type_error of string
 ;;
 
 let rec typeof ctx tm = match tm with
@@ -148,10 +160,11 @@ let rec typeof ctx tm = match tm with
        _ -> raise (Type_error ("no binding type for variable " ^ x)))
 
     (* T-Abs *)
-  | TmAbs (x, tyT1, t2) ->
+    | TmAbs (x, tyT1, t2) ->
       let ctx' = addtbinding ctx x tyT1 in
-      let tyT2 = typeof ctx' t2 in
-      TyArr (tyT1, tyT2)
+        let tyT1' = base_ty ctx tyT1 in
+          let tyT2 = typeof ctx' t2 in
+            TyArr (tyT1', tyT2)
 
     (* T-App *)
   | TmApp (t1, t2) ->
@@ -186,6 +199,7 @@ let rec typeof ctx tm = match tm with
   |TmConcat (t1, t2) -> 
     if typeof ctx t1 = TyString && typeof ctx t2 = TyString then TyString 
     else raise (Type_error "argument o concsat is not a string")
+
         (* T-Tuple *)
   | TmTuple tml ->
     let rec get_types = function
@@ -210,7 +224,8 @@ let rec typeof ctx tm = match tm with
           (try List.nth tyr (int_of_string s - 1) with
              _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
             | _ -> raise (Type_error "Projection is only supported on tuples"))
-    ;;
+ ;;
+
 (* TERMS MANAGEMENT (EVALUATION) *)
 
 let rec string_of_term = function
@@ -263,7 +278,7 @@ let rec string_of_term = function
       in "{" ^ aux list ^ "}"
 
   | TmProjection (t,s) ->
-    string_of_term t ^ "." ^ s
+    string_of_term t ^ "." ^ s   
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -321,6 +336,7 @@ let rec free_vars tm = match tm with
   | TmProjection (t,_) ->
       free_vars t
 ;;
+
 
 let rec fresh_name x l =
   if not (List.mem x l) then x else fresh_name (x ^ "'") l
@@ -396,6 +412,7 @@ let rec isval tm = match tm with
   | TmTuple list -> List.for_all(fun t -> isval(t)) list
   | TmRecord list -> List.for_all (fun t -> isval t) (List.map snd list)
   | _ -> false
+  
 ;;
 
 exception NoRuleApplies
@@ -518,8 +535,6 @@ let rec eval1 ctx tm = match tm with
         |((s,tm)::t) when isval tm -> (s,tm)::(eval_rec t)
         |((s,tm)::t) -> (s,(eval1 ctx tm))::t
       in TmRecord (eval_rec tmr)
-
-
   | _ ->
       raise NoRuleApplies
 ;;
@@ -538,17 +553,25 @@ let rec eval ctx tm =
 ;;
 
 let execute ctx = function  (*cg*)
-  Eval tm -> 
-    let tyTm = typeof ctx tm in 
-    let tm' = eval ctx tm in 
-    print_endline ("- : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
-    ctx 
-  |Bind (s, tm) -> 
-    let tyTm = typeof ctx tm in 
-    let tm' = eval ctx tm in 
-    print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
-    addvbinding ctx s tyTm tm' 
-  |Quit -> 
-    raise End_of_file
-  ;;
+  | Eval tm ->
+    let tyTm = typeof ctx tm in
+      let tm' = eval ctx tm in
+      print_endline ("- : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
+      ctx
 
+  | Bind (s, tm) ->
+    let tyTm = typeof ctx tm in
+      let tm' = eval ctx tm in
+        print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
+        addvbinding ctx s tyTm tm'
+
+  | TBind (s, ty) ->
+    let bty = base_ty ctx ty in 
+    print_endline (s ^ " : type = " ^ string_of_ty bty);
+    addtbinding ctx s bty
+
+  | Quit -> 
+    raise End_of_file
+;;
+
+  

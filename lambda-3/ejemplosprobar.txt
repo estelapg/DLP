@@ -1,18 +1,99 @@
-(*************CONTEXTO GLOBAL**************)
- y = 3;;
-    x = 6;;
-    id = lambda x : Bool. x
-    succ y;;
-    (lambda n : Nat. pred n) x;;
-    letrec sum: Nat -> Nat -> Nat = 
+(***************2.1-combinador de punto fijo interno************)
+>> letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum 21 34;;
+- : Nat = 55
+
+>> letrec sum : Nat -> Nat -> Nat =
+		lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m)
+        in sum 21 3;;
+- : Nat = 24
+
+(*PROD*)
+>> let prod =
+        lambda n : Nat. lambda m : Nat. 
+            (letrec aux : Nat -> Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. lambda k : Nat.
+                if iszero n then 0
+                else if iszero (pred n) then m
+                    else (aux (pred n) (letrec sum : Nat -> Nat -> Nat =
+                                    lambda i : Nat. lambda j : Nat. if iszero i then j else succ (sum (pred i) j) 
+                                    in sum m k) k)
+        in aux n m m)
+    in prod 5 15;;
+- : Nat = 75
+
+(*FIB*)
+>>     let fib =
+        lambda n : Nat.
+            (letrec aux : Nat -> Nat -> Nat -> Nat = lambda n : Nat. lambda a : Nat. lambda b : Nat.
+                if iszero n then a
+                else (aux (pred n) (letrec sum : Nat -> Nat -> Nat =
+                                    lambda i : Nat. lambda j : Nat. if iszero i then j else succ (sum (pred i) j) 
+                                    in sum a b) a)
+            in aux n 0 1
+            )
+    in fib 10;;
+- : Nat = 55
+
+(*FACT*)
+>> let fact = 
+        lambda n : Nat.
+            (letrec factaux : Nat -> Nat -> Nat = lambda n : Nat. lambda acc : Nat.
+                if iszero (pred n) then acc
+                else (factaux (pred n) (
+                    letrec prod : Nat -> Nat -> Nat -> Nat = lambda p : Nat. lambda q : Nat. lambda k : Nat.
+                        if iszero p then 1
+                        else if iszero (pred p) then q
+                            else (prod (pred p) (letrec sum :  Nat -> Nat -> Nat = 
+                                    lambda i : Nat. lambda j : Nat.
+                                    if iszero i then j else succ(sum (pred i) j)
+                                in sum q k) k)
+                    in prod n acc acc))           
+            in factaux n 1)
+    in fact 5;;
+- : Nat = 120
+
+(*************2.2-DEFINICIONES GLOBALES**************)
+
+>> y = 3;;
+y : Nat = 3
+>> y = 3;;
+y : Nat = 3
+>> letrec sum: Nat -> Nat -> Nat = 
         lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
     in sum x y;;
+- : Nat = 3
+>> succ(y);;
+- : Nat = 4
+>> x = true;;
+x : Bool = true
 
-con tipos no me funciona
+TIPOS
+
+>> N = Nat;;
+N : type = Nat
+
+(***************2.3-TIPO STRING**************) añadir lo de char y length?¿
+>> "a";;
+- : String = "a"
+> x="abc";;                
+x : String = "abc"
+>> concat "a" "b";;
+- : String = "ab"
+>>  lambda s : String. s ;;
+- : (String) -> (String) = (lambda s:String. s)
+>> (lambda s : String. s) "abc";;
+- : String = "abc"
+>>    letrec replicate : String -> Nat -> String = 
+        lambda s : String. lambda n : Nat.
+            if iszero n then "" else concat s (replicate s (pred n))
+    in
+        replicate "abc" 3
+    ;;
+- : String = "abcabcabc"
 
 
-
-(*******************TUPLAS*****************)
+(*******************2.4-TUPLAS*****************)
  >> x = {1,2,3,"hola"};;
  x : {Nat, Nat, Nat, String} = {1, 2, 3, "hola"}
  >> y = {"uno","dos"};;
@@ -29,7 +110,7 @@ con tipos no me funciona
 - : Nat = 1
 
 
- LOS SIGUIENTES NO FUNCIONAN, NECESITO LO DE LOS TIPOS:
+ LOS SIGUIENTES NO FUNCIONAN AÚN
   >> f = Lx:Nat.x;;
  f : (Nat) -> (Nat) = (lambda x:Nat. x)
  >> g = Lx:String.x;;
@@ -39,7 +120,7 @@ con tipos no me funciona
  tuple : {Nat, String, String} = {3, "hola", "mundo"}
 
 
- (************REGISTROS**************)
+ (************2.5-REGISTROS**************)
  >> a=5;;
 a : Nat = 5
 >> b={x=31,y=a};;
@@ -50,4 +131,9 @@ b : {x:Nat,y:Nat} = {x : 31, y : 5}
 test1 : {x:Nat,y:String,z:Nat} = {x : 2, y : "hola", z : 77}
 >> test1.y;;
 - : String = "hola"
->> 
+
+(**********2.7-VARIANTES*********)
+
+(**********2.8-LISTAS***********)
+
+(**********2.9-SUBTIPADO********)

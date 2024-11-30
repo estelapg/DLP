@@ -24,12 +24,13 @@ type term =
   | TmConcat of term * term
   | TmTuple of term list
   | TmProjection of term * string 
-  | TmRecord of (string * term) list
+  | TmRecord of (string * term) list 
 ;;
 
 type command = 
   Eval of term 
-| Bind of string * term   
+| Bind of string * term 
+| TBind of string * ty
 | Quit 
 ;;
 
