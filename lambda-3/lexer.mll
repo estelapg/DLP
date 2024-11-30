@@ -23,10 +23,18 @@ rule token = parse
   | "letrec"    { LETREC }
   | "concat"    { CONCAT }
   | "String"    { STRING }
+  | "list"      { LIST }
+  | "cons"      { CONS }
+  | "nil"       { NIL }   
+  | "head"      { HEAD }
+  | "tail"      { TAIL }  
+  | "isempty"   { ISEMPTY }
   | '('         { LPAREN }
   | ')'         { RPAREN }
   | '{'         { LBRACE }
   | '}'         { RBRACE } 
+  | '['         { LBRACKET }
+  | ']'         { RBRACKET }
   | ','         { COMMA }
   | '.'         { DOT }
   | '='         { EQ }

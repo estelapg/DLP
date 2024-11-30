@@ -8,6 +8,7 @@ type ty =
   | TyArr of ty * ty
   | TyTuple of ty list
   | TyRecord of (string * ty) list
+  | TyList of ty
 
 ;;
 
@@ -29,6 +30,11 @@ type term =
   | TmTuple of term list
   | TmProjection of term * string
   | TmRecord of (string * term) list
+  | TmHead of ty * term
+  | TmTail of ty * term
+  | TmCons of ty * term * term
+  | TmNil of ty
+  | TmisEmpty of ty * term
 ;;
 
 type command = 
@@ -89,6 +95,7 @@ let rec base_ty ctx ty = match ty with
   | TyArr (ty1, ty2) -> TyArr (base_ty ctx ty1, base_ty ctx ty2)
   | TyTuple tys -> TyTuple (List.map (base_ty ctx) tys)
   | TyRecord tys -> TyRecord (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tys)
+  | TyList ty -> TyList (base_ty ctx ty)
 ;;
 
 
@@ -115,6 +122,9 @@ let rec string_of_ty ty = match ty with
       |((s,ty)::[]) -> s ^ ":" ^ (string_of_ty ty)
       |((s,ty)::t) -> s ^ ":" ^ (string_of_ty ty) ^ "," ^ print t
     in "{" ^ (print tyr) ^ "}" 
+
+  | TyList ty -> "List[" ^ string_of_ty ty ^ "]" 
+  
 ;;
 
 let rec typeof ctx tm = match tm with
@@ -224,6 +234,26 @@ let rec typeof ctx tm = match tm with
           (try List.nth tyr (int_of_string s - 1) with
              _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
             | _ -> raise (Type_error "Projection is only supported on tuples"))
+  | TmCons(ty,h,t) ->
+      let tyTh = typeof ctx h in 
+        let tyTt = typeof ctx t in 
+            if tyTh = tyTt then TyList(ty)
+            else TyList(ty)
+  | TmHead (ty,t) ->
+      if typeof ctx t = TyList(ty) then ty
+      else raise (Type_error ("head is not a List of" ^ (string_of_ty ty)))
+
+
+  | TmTail (ty,t) ->
+      if typeof ctx t = TyList(ty) then TyList(ty)
+      else raise (Type_error ("tail is not a List of" ^ (string_of_ty ty)))
+  | TmNil ty ->
+      TyList ty
+  | TmisEmpty (ty,t) ->
+      if typeof ctx t = TyList(ty) then TyBool
+      else raise (Type_error ("Argument of isempty is not a List"))
+
+      
  ;;
 
 (* TERMS MANAGEMENT (EVALUATION) *)
@@ -279,6 +309,18 @@ let rec string_of_term = function
 
   | TmProjection (t,s) ->
     string_of_term t ^ "." ^ s   
+
+  | TmCons(ty,h,t) -> 
+      "cons[" ^ string_of_ty ty ^ ":" ^ string_of_term h ^ "," ^ (string_of_term t) ^ "]"
+  | TmHead (ty,t) ->
+      "head[" ^ string_of_ty ty ^ "]" ^ "(" ^ string_of_term t ^ ")"
+
+  | TmTail (ty,t) ->
+      "tail[" ^ string_of_ty ty ^ "]" ^ "(" ^ string_of_term t ^ ")"
+  | TmNil ty ->
+      "nil[" ^ string_of_ty ty ^ "]"
+  | TmisEmpty (ty,t) ->
+     "isempty[" ^ string_of_ty ty ^ "]"   
 ;;
 
 let rec ldif l1 l2 = match l1 with
@@ -334,6 +376,17 @@ let rec free_vars tm = match tm with
     in aux t
 
   | TmProjection (t,_) ->
+      free_vars t
+  | TmCons(ty,h,t) ->
+      lunion (free_vars h) (free_vars t)
+  | TmHead (ty,t) ->
+      free_vars t
+  
+  | TmTail (ty,t) ->
+      free_vars t
+  | TmNil ty ->
+    []
+  | TmisEmpty (ty,t) ->
       free_vars t
 ;;
 
@@ -395,6 +448,18 @@ let rec subst x s tm = match tm with
        
   | TmProjection(t,n) ->
         TmProjection  (subst x s t, n)
+  | TmCons(ty,h,t) ->
+      TmCons(ty,(subst x s h),(subst x s t))
+
+
+  | TmHead (ty,t) ->
+      TmHead (ty,(subst x s t))
+  | TmTail (ty,t) ->
+      TmTail (ty,(subst x s t))
+  | TmNil ty ->
+      tm
+  | TmisEmpty (ty,t) ->
+      TmisEmpty(ty,subst x s t)
 ;;
 
 let rec isnumericval tm = match tm with
@@ -411,6 +476,8 @@ let rec isval tm = match tm with
   | t when isnumericval t -> true
   | TmTuple list -> List.for_all(fun t -> isval(t)) list
   | TmRecord list -> List.for_all (fun t -> isval t) (List.map snd list)
+  | TmCons(_,h,t) -> (isval h) && (isval t)
+  | TmNil _-> true
   | _ -> false
   
 ;;
@@ -535,6 +602,22 @@ let rec eval1 ctx tm = match tm with
         |((s,tm)::t) when isval tm -> (s,tm)::(eval_rec t)
         |((s,tm)::t) -> (s,(eval1 ctx tm))::t
       in TmRecord (eval_rec tmr)
+  | TmCons(ty,h,t) when isval h -> TmCons(ty,h,(eval1 ctx t))
+
+  | TmCons(ty,h,t) -> TmCons(ty,(eval1 ctx h),t)
+
+  | TmHead(ty,TmCons(_,h,_)) -> h
+
+  | TmHead (ty,t) ->
+      TmHead(ty, eval1 ctx t)
+
+  | TmTail(ty,TmCons(_,_,t)) -> t
+
+  | TmTail (ty,t) ->
+      TmTail(ty, eval1 ctx t)
+  | TmisEmpty(ty,TmNil(_)) -> TmTrue
+  | TmisEmpty(ty,TmCons(_,_,_)) -> TmFalse
+  | TmisEmpty(ty,t) -> TmisEmpty(ty,eval1 ctx t)
   | _ ->
       raise NoRuleApplies
 ;;

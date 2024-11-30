@@ -24,6 +24,8 @@
 %token RPAREN
 %token LBRACE
 %token RBRACE
+%token LBRACKET
+%token RBRACKET
 %token COMMA
 %token DOT
 %token EQ
@@ -31,6 +33,13 @@
 %token ARROW
 %token SEMICOLON
 %token EOF
+%token HEAD
+%token TAIL
+%token LIST
+%token CONS
+%token UNIT
+%token NIL
+%token ISEMPTY
 
 %token <int> INTV
 %token <string> IDV
@@ -71,7 +80,17 @@ appTerm :
   | ISZERO pathTerm
       { TmIsZero $2 }
   | CONCAT pathTerm pathTerm
-      {TmConcat ($2, $3) } 
+      {TmConcat ($2, $3) }   
+   | CONS LBRACKET ty COLON pathTerm COMMA pathTerm RBRACKET 
+    { TmCons($3,$5,$7)}
+  | HEAD LBRACKET ty RBRACKET pathTerm 
+      {TmHead($3,$5)}
+  | TAIL LBRACKET ty RBRACKET pathTerm
+      {TmTail($3,$5)}  
+  | NIL LBRACKET ty RBRACKET
+      {TmNil ($3)}
+  | ISEMPTY LBRACKET ty RBRACKET pathTerm
+       {TmisEmpty ($3,$5)}
   | appTerm pathTerm
       { TmApp ($1, $2) }
 
@@ -86,6 +105,8 @@ pathTerm :
 atomicTerm :
     LPAREN term RPAREN
       { $2 }
+  | COMMA term
+    { $2 }
   | TRUE
       { TmTrue }
   | FALSE
@@ -122,6 +143,8 @@ atomicTy :
     { TyString}
   | LBRACE recty RBRACE
       { TyRecord $2 }
+  | LIST LBRACKET ty RBRACKET
+      { TyList $3 }
 
 tupleTerm:
     | term 
@@ -145,3 +168,4 @@ recty:
 nonemptyrecTY:
     | IDV COLON ty {[$1,$3]}
     | IDV COLON ty COMMA nonemptyrecTY {($1,$3)::$5}
+

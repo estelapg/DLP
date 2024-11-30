@@ -136,4 +136,55 @@ test1 : {x:Nat,y:String,z:Nat} = {x : 2, y : "hola", z : 77}
 
 (**********2.8-LISTAS***********)
 
+>> lstnil = nil[Nat];;
+lstnil : List[Nat] = nil[Nat]
+
+>> x = 4;;
+x : Nat = 4
+
+>> lst1 = cons[Nat:2, (cons[Nat:3 , (nil[Nat])])];;
+lst1 : List[Nat] = cons[Nat:2,cons[Nat:3,nil[Nat]]]
+
+>> lst2 = cons[Nat:4, (cons[Nat:5 , (nil[Nat])])];;
+lst2 : List[Nat] = cons[Nat:4,cons[Nat:5,nil[Nat]]]
+
+>> lst3 = cons[Nat:x, (nil[Nat])];;
+lst3 : List[Nat] = cons[Nat:4,nil[Nat]]
+
+>> head[Nat] lst1;;
+- : Nat = 2
+
+>> tail[Nat] lst1;;
+- : List[Nat] = cons[Nat:3,nil[Nat]]
+
+>> isempty[Nat] lstnil;;
+- : Bool = true
+
+>> letrec len : (list[Nat]) -> Nat =
+  lambda lst : list[Nat].
+    if (isempty[Nat] lst) then 0
+    else (succ(len(tail[Nat] lst)))
+in len lst1;;
+- : Nat = 2
+
+>> letrec map : (Nat -> Nat) -> list[Nat] -> list[Nat] =
+  lambda f : (Nat -> Nat).
+  lambda lst : list[Nat].
+    if isempty[Nat] lst then 
+        (nil[Nat])
+    else 
+        cons[Nat:(f (head[Nat] lst)),(map f (tail[Nat] lst))]
+in map (lambda x : Nat. succ x) lst1;;
+- : List[Nat] = cons[Nat:3,cons[Nat:4,nil[Nat]]]
+
+>> letrec append : list[Nat] -> list[Nat] -> list[Nat] =
+  lambda lst1 : list[Nat].
+  lambda lst2 : list[Nat].
+    if isempty[Nat] lst1 then
+      lst2
+    else
+      cons[Nat:(head[Nat] lst1),(append (tail[Nat] lst1) lst2)]
+in append lst1 lst2;;
+- : List[Nat] = cons[Nat:2,cons[Nat:3,cons[Nat:4,cons[Nat:5,nil[Nat]]]]]
+
 (**********2.9-SUBTIPADO********)
