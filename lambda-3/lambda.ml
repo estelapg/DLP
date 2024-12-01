@@ -1,5 +1,6 @@
 
 (* TYPE DEFINITIONS *)
+open Format;;
 
 type ty =
     TyBool
@@ -142,6 +143,82 @@ let rec subtypeof tm1 tm2 = match (tm1, tm2) with
   | (tm1, tm2) -> tm1 = tm2
 ;;
 
+let rec print_type = function
+  TyArr (t1, t2) ->
+    open_box 1;
+    print_atomic_type t1;
+    close_box();
+    print_string "->";
+    print_space ();
+    open_box 1;
+    print_type t2;
+    close_box ();
+    ()
+  | TyTuple [] -> print_string "{}"
+  | TyTuple l ->
+    let rec aux = function
+      [] -> ()
+      | (ty):: [] ->
+        print_type ty;
+        ()
+      | (ty) :: t ->
+        print_type ty;
+        print_char ',';
+        print_space ();
+        aux t;
+    in
+      print_char '{';
+      open_box 1;
+      aux l;
+      close_box ();
+      print_char '}';
+      ()
+  | TyRecord [] -> print_string "{}"
+  (*TyRecord l when isnat (fst (List.hd l)) -> TODO: entender este caso*)
+  | TyRecord l ->
+    let rec aux = function
+      [] -> ()
+      | (fn, ty):: [] ->
+        print_string fn;
+        print_char '=';
+        print_type ty;
+        ()
+      | (fn, ty) :: t ->
+        print_string fn;
+        print_char '=';
+        print_type ty;
+        print_char ',';
+        print_space ();
+        aux t;
+    in
+      print_char '{';
+      open_box 1;
+      aux l;
+      close_box ();
+      print_char '}';
+        ()
+    | TyList ty ->
+    print_string "List";
+    open_box 1;
+    print_type ty;
+    close_box ();
+    ()
+    | ty -> print_atomic_type ty;
+
+    and print_atomic_type = function
+    TyBool -> print_string "Bool"; ()
+    | TyNat -> print_string "Nat"; ()
+    | TyString -> print_string "String"; ()
+    | ty ->
+      print_char '(';
+      open_box 1;
+      print_type ty;
+      close_box ();
+      print_char ')';
+      ()
+  ;;
+
+
 
 let rec typeof ctx tm = match tm with
     (* T-True *)
@@ -270,10 +347,252 @@ let rec typeof ctx tm = match tm with
   | TmisEmpty (ty,t) ->
       if typeof ctx t = TyList(ty) then TyBool
       else raise (Type_error ("Argument of isempty is not a List"))
-
       
  ;;
 
+ let rec print_term =
+  let rec print_sequential = function
+    TmApp(TmAbs (_, _, t2), t1) ->
+      open_box 1;
+        print_term t1;
+      close_box ();
+      print_char ';';
+      print_space ();
+      print_sequential t2;
+      ()
+      | tm ->
+        open_box 1;
+          print_tm tm;
+        close_box();
+        ()
+    and print_tm = function
+      TmIf (t1, t2, t3) ->
+          print_string "if";
+        print_space ();
+        open_box 1;
+          print_tm t1;
+        close_box ();
+        print_space ();
+        print_string "then";
+        print_space ();
+        open_box 1;
+          print_tm t2;
+        close_box ();
+        print_space ();
+        print_string "else";
+        print_space ();
+        open_box 1;
+          print_tm t3;
+        close_box ();
+        ()
+      | TmAbs (s, ty, t) ->
+        open_box 1;
+          print_string "lambda";
+          print_space ();
+          print_string s;
+          print_char ':';
+          print_type ty;
+          print_char '.';
+          print_space ();
+          print_term t;
+        close_box ();
+        ()
+      | TmLetIn (s, t1, t2) ->
+        print_string "let";
+        print_space ();
+        print_string s;
+        print_space ();
+        print_char '=';
+        print_space ();
+        open_box 1;
+          print_tm t1;
+        close_box ();
+        print_space ();
+        print_string "in";
+        print_space ();
+        open_box 1;
+          print_tm t2;
+        close_box ();
+        ()
+      | TmFix t ->
+        open_box 1;
+          print_string "fix";
+          print_space ();
+          print_tm t;
+        close_box ();
+        ()
+      | tm -> print_app tm; ()
+  
+      (*applications*)
+    and print_app = function
+      TmApp (t1, t2) ->
+        open_box 1;
+          print_projection t1;
+          print_space ();
+          print_projection t2;
+        close_box ();
+        ()
+      | TmPred t ->
+        print_string "pred";
+        print_space ();
+        open_box 1;
+          print_projection t;
+        close_box ();
+        ()
+      | TmIsZero t ->
+        print_string "iszero";
+        print_space ();
+        open_box 1;
+          print_projection t;
+        close_box ();
+        ()
+      | TmConcat (t1, t2) ->
+        open_box 1;
+          print_concat t1;
+        close_box ();
+        print_space ();
+        print_char '^';
+        print_space ();
+        open_box 1;
+          print_projection t2;
+        close_box ();
+        ()
+      | TmisEmpty (ty, t) ->
+        print_string "isEmpty";
+        print_cut ();
+        print_char '[';
+        print_type ty;
+        print_char ']';
+        print_space ();
+        open_box 1;
+          print_projection t;
+        close_box ();
+        ()
+      | TmHead (ty, t) ->
+        print_string "head";
+        print_cut ();
+        print_char '[';
+        print_type ty;
+        print_char ']';
+        print_space ();
+        open_box 1;
+          print_projection t;
+        close_box ();
+        ()
+      | TmTail (ty, t) ->
+        print_string "tail";
+        print_cut ();
+        print_char '[';
+        print_type ty;
+        print_char ']';
+        print_space ();
+        open_box 1;
+          print_projection t;
+        close_box ();
+        ()
+      | tm -> print_projection tm; ()
+  
+    and print_concat = function
+      TmConcat (t1, t2) ->
+        open_box 1;
+          print_concat t1;
+        close_box ();
+        print_space ();
+        print_char '^';
+        print_space ();
+        open_box 1;
+          print_projection t2;
+        close_box ();
+        ()
+    | tm ->
+        open_box 1;
+          print_projection tm;
+        close_box ();
+        ()
+      (*projections*)
+    and print_projection = function
+      TmProjection (t1, fn) ->
+        open_box 1;
+          print_projection t1;
+        close_box ();
+        print_char '.';
+        print_string fn;
+      | TmRecord [] as tm -> print_atomic tm
+      (* tmRecord if isnar  TODO: understand this case *)
+      | TmRecord list ->
+        let rec aux = function
+          [] ->
+            ()
+          | (fn,tm)::[] ->
+            print_string fn;
+            print_char '=';
+            print_projection tm;
+            ()
+          | (fn,tm)::t ->
+            print_string fn;
+            print_char '=';
+            print_projection tm;
+            print_char ',';
+            print_space ();
+            aux t;
+        in
+          print_char '{';
+          open_box 1;
+            aux list;
+          close_box ();
+          print_char '}';
+          ()
+      | TmTuple [] as tm -> print_atomic tm
+      (* tmRecord if isnar  TODO: understand this case *)
+      | TmTuple list ->
+        let rec aux = function
+          [] ->
+            ()
+          | tm::[] ->
+            print_projection tm;
+            ()
+          | tm::t ->
+            print_projection tm;
+            print_char ',';
+            print_space ();
+            aux t;
+        in
+          print_char '{';
+          open_box 1;
+            aux list;
+          close_box ();
+          print_char '}';
+          ()
+      | tm -> print_atomic tm; ();
+      (*atomic values*)
+    and print_atomic = function
+      TmTrue -> print_string "true"; ()
+      | TmFalse -> print_string "false"; ()
+      | TmZero -> print_char '0'; ()
+      | TmVar s -> print_string s; ()
+      | TmSucc t ->
+        let rec f n t' = match t' with
+            TmZero -> print_int n; ()
+          | TmSucc s -> f (n+1) s
+          | _ ->
+            print_string "succ";
+            print_space ();
+            open_box 1;
+              print_projection t;
+            close_box ();
+            ()
+        in f 1 t
+      | TmString s -> print_string s; ()
+      | TmRecord [] -> print_string "{}"; ()
+      | tm ->
+        print_char '(';
+        open_box 1;
+          print_sequential tm;
+        close_box ();
+        print_char ')';
+        ()
+    in fun tm -> print_sequential tm
+  ;;
 (* TERMS MANAGEMENT (EVALUATION) *)
 
 let rec string_of_term = function
@@ -298,11 +617,11 @@ let rec string_of_term = function
   | TmIsZero t ->
       "iszero " ^ "(" ^ string_of_term t ^ ")"
   | TmVar s ->
-      s
+      "var" ^ s
   | TmAbs (s, tyS, t) ->
-      "(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
+      "\n(lambda " ^ s ^ ":" ^ string_of_ty tyS ^ ". " ^ string_of_term t ^ ")"
   | TmApp (t1, t2) ->
-      "(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
+      "app(" ^ string_of_term t1 ^ " " ^ string_of_term t2 ^ ")"
   | TmLetIn (s, t1, t2) ->
       "let " ^ s ^ " = " ^ string_of_term t1 ^ " in " ^ string_of_term t2
   | TmFix t ->
@@ -660,17 +979,38 @@ let rec eval ctx tm =
     NoRuleApplies -> apply_ctx ctx tm
 ;;
 
+let printer s tyTm tm =
+  open_box 1;
+  print_string s;
+  print_space ();
+  print_char ':';
+  print_space ();
+  print_type tyTm;
+  print_space ();
+  print_char '=';
+  print_space();
+  open_box 1;
+      print_term tm;
+  close_box ();
+  print_newline();
+  print_flush ();
+;;
+
+
 let execute ctx = function  (*cg*)
   | Eval tm ->
     let tyTm = typeof ctx tm in
       let tm' = eval ctx tm in
-      print_endline ("- : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
+      (* print_endline ("- : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
+      ctx *)
+      printer "-" tyTm tm';
       ctx
 
   | Bind (s, tm) ->
     let tyTm = typeof ctx tm in
       let tm' = eval ctx tm in
-        print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
+        (* print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm'); *)
+        printer s tyTm tm';
         addvbinding ctx s tyTm tm'
 
   | TBind (s, ty) ->
