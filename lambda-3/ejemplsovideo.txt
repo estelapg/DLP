@@ -1,0 +1,262 @@
+DEFINICIONES GLOBALES
+
+>> x = 5;;
+x : Nat =  5
+>> succ x;;
+- : Nat =  6
+>> f = lambda y : Nat. X;;
+syntax error
+>> f = lambda y : Nat. x;;
+f : Nat-> Nat =  lambda y : Nat.  5
+>> f 3;;
+- : Nat =  5
+>> f 5;;
+- : Nat =  5
+>> x;;
+- : Nat =  5
+>> x = 7;;
+x : Nat =  7
+>> f 3;;
+- : Nat =  5
+>> f 8;;
+- : Nat =  5
+>> x;;
+- : Nat =  7
+letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum;;
+
+sum = letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum;;
+sum : Nat-> Nat-> Nat = 
+ lambda n : Nat. 
+  lambda m : Nat. 
+   if iszero  n then  m else 
+    succ (fix 
+           (lambda sum : Nat-> Nat-> Nat. 
+             lambda n : Nat. 
+              lambda m : Nat. 
+               if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+           (pred  n)  m)
+>> sum x 3;;
+- : Nat =  10
+>> N = Nat;;
+type N =  Nat
+>> NiN = N -> N;;
+type NiN =  Nat-> Nat
+>> N3 = N -> NiN;;
+type N3 =  Nat-> Nat-> Nat
+>> letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum 21 34;;
+- : Nat =  55
+
+//////////////////TIPO STRING/////////////////
+
+>> "para";;
+- : String =  "para"
+>> concat "para" "sol";;
+- : String =  "parasol"
+>> s = "sol";;
+s : String =  "sol"
+>> concat "para" s;;
+- : String =  "parasol"
+>> concat (concat "para" s) "es";;
+- : String =  "parasoles"
+
+/////////////////TUPLAS////////////////
+>> x = {1,2,3,"hola"};;
+x : {Nat,  Nat,  Nat,  String} =  {1,  2,  3,  "hola"}
+>> {5,true};;
+- : {Nat,  Bool} =  {5,  true}
+>> {5,true,"abc"};;
+- : {Nat,  Bool,  String} =  {5,  true,  "abc"}
+>> {5,true,"abc"}.1;;
+- : Nat =  5
+>> {5,true,"abc"}.2;;
+- : Bool =  true
+>> {5,true,"abc"}.3;;
+- : String =  "abc"
+>> {5,true,"abc"}.4;;
+type error: cannot project 4, this key does not exist in the tuple
+>> {5,{true,"abc"}};;
+- : {Nat,  {Bool,  String}} =  {5,  {true,  "abc"}}
+>> {5,{true,"abc"}}.1;;
+- : Nat =  5
+>> {5,{true,"abc"}}.2;;
+- : {Bool,  String} =  {true,  "abc"}
+>> {5,{true,"abc"}}.2.1;;
+- : Bool =  true
+>> {5,{true,"abc"}}.2.2;;
+- : String =  "abc"
+
+////////////////REGISTROS//////////////////
+>> {x=2, y=5, z=0};;
+- : {x : Nat,  y : Nat,  z : Nat} =  {x = 2,  y = 5,  z = 0}
+>> {x=2, y=5, z=0}.x;;
+- : Nat =  2
+>> p = {na={"estela", "pillo"}, e = 22};;
+p : {na : {String,  String},  e : Nat} = 
+ {na = {"estela",  "pillo"},  e = 22}
+>> p.na;;
+- : {String,  String} =  {"estela",  "pillo"}
+>> p.na.1;;
+- : String =  "estela"
+>> p.na.2;;
+- : String =  "pillo"
+>> p.e;;
+- : Nat =  22
+>> {x=2, y=5, z=0}.1;;
+type error: cannot project 1,this key does not exist in the record
+
+//////////////VARIANTES////////////////
+
+>> Int = <pos:Nat, zero:Bool, neg:Nat>;;
+type Int =  <pos : Nat,  zero : Bool,  neg : Nat>
+>> p3 = <pos=3> as Int;;
+p3 : <pos : Nat,  zero : Bool,  neg : Nat> =  <pos =  3> as Int
+>> z0 = <zero=true> as Int;;
+z0 : <pos : Nat,  zero : Bool,  neg : Nat> =  <zero =  true> as Int
+>> n5 = <neg=5> as Int;;
+n5 : <pos : Nat,  zero : Bool,  neg : Nat> =  <neg =  5> as Int
+
+
+////////////////estos no funcionan///////////////
+>> is_zero = L i : Int. 
+        case i of 
+          <pos=p> => false
+        |<zero=z> => true
+        |<neg=n> => false 
+;;
+
+is_zero p3;;
+is_zero z0;;
+is_zero n5;;
+
+
+
+//////////////////////LISTAS//////////////////
+
+>> l = cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil [Nat]));;
+l : List[Nat] =  cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat]))
+
+>> isnil[Nat] l;;
+- : Bool =  false
+
+>> head[Nat] l;;
+- : Nat =  8
+
+>> tail[Nat] l;;
+- : List[Nat] =  cons[Nat] 5 (cons[Nat] 7 nil[Nat])
+
+
+
+esto para el examples.txt:
+
+
+(*PROD*)
+>> prod = 
+        letrec prod : Nat -> Nat -> Nat =
+                lambda n : Nat. lambda m : Nat. if iszero m then 0 else sum n (prod n (pred m))
+        in
+                prod
+        ;;
+prod : Nat-> Nat-> Nat = 
+ lambda n : Nat. 
+  lambda m : Nat. 
+   if iszero  m then  0 else 
+    (lambda n : Nat. 
+      lambda m : Nat. 
+       if iszero  n then  m else 
+        succ (fix 
+               (lambda sum : Nat-> Nat-> Nat. 
+                 lambda n : Nat. 
+                  lambda m : Nat. 
+                   if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+               (pred  n)  m)) 
+     n 
+     (fix 
+       (lambda prod : Nat-> Nat-> Nat. 
+         lambda n : Nat. 
+          lambda m : Nat. 
+           if iszero  m then  0 else 
+            (lambda n : Nat. 
+              lambda m : Nat. 
+               if iszero  n then  m else 
+                succ (fix 
+                       (lambda sum : Nat-> Nat-> Nat. 
+                         lambda n : Nat. 
+                          lambda m : Nat. 
+                           if iszero  n then  m else 
+                            succ (sum  (pred  n)  m)) 
+                       (pred  n)  m)) 
+             n  (prod  n  (pred  m))) 
+       n  (pred  m))
+
+(*SUM*)
+>> sum = letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum;;
+sum : Nat-> Nat-> Nat = 
+ lambda n : Nat. 
+  lambda m : Nat. 
+   if iszero  n then  m else 
+    succ (fix 
+           (lambda sum : Nat-> Nat-> Nat. 
+             lambda n : Nat. 
+              lambda m : Nat. 
+               if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+           (pred  n)  m)
+
+(*LENGTH*)
+>> length = 
+        letrec length : List[Nat] -> Nat = 
+                lambda l : List[Nat]. if isnil[Nat] l then 0 else sum 1 (length (tail[Nat] l))
+        in
+                length
+        ;;
+length : List[Nat]-> Nat = 
+ lambda l : List[Nat]. 
+  if isnil[Nat]  l then  0 else 
+   (lambda n : Nat. 
+     lambda m : Nat. 
+      if iszero  n then  m else 
+       succ (fix 
+              (lambda sum : Nat-> Nat-> Nat. 
+                lambda n : Nat. 
+                 lambda m : Nat. 
+                  if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+              (pred  n)  m)) 
+    (1) 
+    (fix 
+      (lambda length : List[Nat]-> Nat. 
+        lambda l : List[Nat]. 
+         if isnil[Nat]  l then  0 else 
+          (lambda n : Nat. 
+            lambda m : Nat. 
+             if iszero  n then  m else 
+              succ (fix 
+                     (lambda sum : Nat-> Nat-> Nat. 
+                       lambda n : Nat. 
+                        lambda m : Nat. 
+                         if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+                     (pred  n)  m)) 
+           (1)  (length  tail[Nat]  l)) 
+      tail[Nat]  l)
+
+
+>> N3 = Nat -> Nat -> Nat;;
+type N3 =  Nat-> Nat-> Nat
+>> nil[N3];;
+- : List[N3] =  nil[N3]
+
+NO FUNCIONA(ejecutar antes prod y sum)
+
+>> cons[N3] sum nil[N3];;
+type error: elements of list have 
+            different types
+            
+>> cons[N3] prod (cons[N3] sum nil[N3]);;
+type error: elements of list have 
+            different types

@@ -22,6 +22,28 @@
     in prod 5 15;;
 - : Nat = 75
 
+
+(*********PRETTY-PRINTER********)
+>> lambda x : Nat. x;;
+- : Nat-> Nat = lambda x:Nat. x
+
+
+letrec sum : Nat -> Nat -> Nat =
+                lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m)
+        in sum ;;
+- : Nat-> Nat-> Nat =
+ lambda n:Nat.
+  lambda m:Nat.
+   if iszero n then m else
+    succ
+     (((fix
+         lambda sum:Nat-> Nat-> Nat.
+          lambda n:Nat.
+           lambda m:Nat. if iszero n then m else succ ((sum (pred n)) m))
+        (pred n))
+       m)
+
+
 (*FIB*)
 >>     let fib =
         lambda n : Nat.
@@ -167,6 +189,14 @@ lst3 : List[Nat] = cons[Nat:4,nil[Nat]]
 in len lst1;;
 - : Nat = 2
 
+
+>>cons[Nat] 3 nil[Nat];;
+- : List[Nat] =  cons[Nat] 3 nil[Nat]
+>>cons[Nat] 5 (cons[Nat] 3 nil[Nat]);;
+- : List[Nat] =  cons[Nat] 5 (cons[Nat] 3 nil[Nat])
+
+
+
 >> letrec map : (Nat -> Nat) -> list[Nat] -> list[Nat] =
   lambda f : (Nat -> Nat).
   lambda lst : list[Nat].
@@ -186,6 +216,23 @@ in map (lambda x : Nat. succ x) lst1;;
       cons[Nat:(head[Nat] lst1),(append (tail[Nat] lst1) lst2)]
 in append lst1 lst2;;
 - : List[Nat] = cons[Nat:2,cons[Nat:3,cons[Nat:4,cons[Nat:5,nil[Nat]]]]]
+
+>> length = letrec length : (list[Nat]) -> Nat =
+  lambda lst : list[Nat].
+    if (isnill[Nat] lst) then 0
+    else (succ(length(tail[Nat] lst))) in length;;
+len : (ListNat)-> Nat =
+ lambda lst:ListNat.
+  if isEmpty[Nat] lst then 0 else
+   succ
+    ((fix
+       lambda len:(ListNat)-> Nat.
+        lambda lst:ListNat.
+         if isEmpty[Nat] lst then 0 else succ (len (tail[Nat] lst)))
+      (tail[Nat] lst))
+      
+>> len lst1;;
+- : Nat = 2
 
 (**********2.9-SUBTIPADO********)
 

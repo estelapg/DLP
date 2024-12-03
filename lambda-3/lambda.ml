@@ -1,6 +1,7 @@
 
 (* TYPE DEFINITIONS *)
-open Format;;
+open Format
+
 
 type ty =
     TyBool
@@ -10,6 +11,8 @@ type ty =
   | TyTuple of ty list
   | TyRecord of (string * ty) list
   | TyList of ty
+  | TyVariant of (string * ty) list
+  | TyVar of string
 
 ;;
 
@@ -31,11 +34,15 @@ type term =
   | TmTuple of term list
   | TmProjection of term * string
   | TmRecord of (string * term) list
+
   | TmHead of ty * term
   | TmTail of ty * term
   | TmCons of ty * term * term
   | TmNil of ty
   | TmisEmpty of ty * term
+
+  | TmTag of string * term * ty
+  | TmCase of term * (string * string * term) list
 ;;
 
 type command = 
@@ -89,6 +96,7 @@ exception Type_error of string
 ;; 
 
 
+
 let rec base_ty ctx ty = match ty with
   TyBool -> TyBool
   | TyNat -> TyNat
@@ -96,9 +104,417 @@ let rec base_ty ctx ty = match ty with
   | TyArr (ty1, ty2) -> TyArr (base_ty ctx ty1, base_ty ctx ty2)
   | TyTuple tys -> TyTuple (List.map (base_ty ctx) tys)
   | TyRecord tys -> TyRecord (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tys)
-  | TyList ty -> TyList (base_ty ctx ty)
+  | TyList (ty) -> TyList (base_ty ctx ty)
+  | TyVariant tys -> TyVariant (List.map (fun (s, ty) -> (s, base_ty ctx ty)) tys)
+  | TyVar s -> gettbinding ctx s
 ;;
 
+
+
+let rec print_type = function
+  TyArr (t1, t2) ->
+    open_box 1;
+    print_atomic_type t1;
+    close_box();
+    print_string "->";
+    print_space ();
+    open_box 1;
+    print_type t2;
+    close_box ();
+    ()
+  | ty -> print_atomic_type ty;
+    
+  and print_atomic_type = function
+  TyBool ->
+			open_box 1;
+			print_string "Bool";
+			close_box ()
+	| TyNat ->
+			open_box 1;
+			print_string "Nat";
+			close_box ()
+	| TyString ->
+			open_box 1;
+			print_string "String";
+			close_box ()
+| TyTuple ts ->
+			open_box 1;
+			print_string "{";
+			print_tuple ts;
+			print_string "}";
+			close_box ()
+  | TyRecord ts ->
+			open_box 1;
+			print_string "{";
+			print_record ts;
+			print_string "}";
+			close_box ()
+	| TyVariant ts ->
+			open_box 1;
+			print_string "<";
+			print_record ts;
+			print_string ">";
+			close_box ()
+	| TyList ty ->
+			open_box 1;
+			print_string "List[";
+			print_type ty;
+			print_string "]";
+			close_box ()
+    
+    | TyVar s ->
+        open_box 1;
+        print_string s;
+        close_box ()
+    | ty ->
+      print_char '(';
+      open_box 1;
+      print_type ty;
+      close_box ();
+      print_char ')';
+      ()
+  and print_tuple = function
+      [] -> ()
+      | [x] -> print_type x
+      | x :: xs ->
+          print_type x;
+          print_string ", ";
+          print_space ();
+          print_tuple xs
+  and print_record = function
+      [] -> ()
+      | [(s, term)] -> 
+          print_string s; 
+          print_string " : "; 
+          print_type term
+    
+      | (s, term) :: t ->
+          print_string s;
+          print_string " : ";
+          print_type term;
+          print_string ", ";
+          print_space ();
+          print_record t
+  ;;
+
+
+let rec print_term = function
+   
+      
+	TmIf (t1, t2, t3) ->
+    open_box 1;
+    print_string "if ";
+    print_term t1;
+    print_space ();
+    print_string "then ";
+    print_space ();
+    print_term t2;
+    print_space ();
+    print_string "else ";
+    print_space ();
+    print_term t3;
+    close_box ()
+
+| TmAbs (v, ty, t) ->
+    open_box 1;
+    print_string "lambda ";
+    print_string v;
+    print_string " : ";
+    print_type ty;
+    print_string ". ";
+    print_space ();
+    print_term t;
+    close_box ()
+    | TmLetIn (v, TmFix (TmAbs (v', ty', t')), t2) ->
+			open_box 1;
+			print_string "let rec ";
+			print_string v;
+			print_string " : ";
+			print_type ty';
+			print_string " = ";
+			print_space ();
+			print_term (TmFix (TmAbs (v', ty', t')));
+			print_string " in ";
+			print_space ();
+			print_term t2;
+			close_box ()
+
+	| TmLetIn (v, t1, t2) ->
+			open_box 1;
+			print_string "let ";
+			print_string v;
+			print_string " = ";
+			print_space ();
+			print_term t1;
+			print_string " in ";
+			print_space ();
+			print_term t2;
+			close_box ()
+      
+  | term -> print_app_term term
+    
+  and print_app_term = function 
+    TmSucc t ->
+			open_box 1;
+			let rec f n t' = match t' with
+				TmZero -> print_string (string_of_int n)
+				| TmSucc s -> f (n+1) s
+				| _  -> print_string "succ "; 
+								print_atomic_term t
+			in f 1 t;
+			close_box ()
+	
+	| TmPred t ->
+			open_box 1;
+			print_string "pred ";
+			print_space ();
+			print_path_term t;
+			close_box ()
+
+	| TmIsZero t ->
+			open_box 1;
+			print_string "iszero ";
+			print_space ();
+			print_path_term t;
+			close_box ()
+
+	| TmConcat (t1, t2) ->  
+			open_box 1;
+			print_string "concat ";
+			print_space ();
+			print_path_term t1;
+			print_string " ";
+			print_space ();
+			print_path_term t2;
+			close_box ()
+
+	| TmFix t ->
+			open_box 1;
+			print_string "fix ";
+			print_space ();
+			print_path_term t;
+			close_box ()
+
+	| TmApp (t1, t2) ->
+			open_box 1;
+			print_app_term t1;
+			print_string " ";
+			print_space ();
+			print_path_term t2;
+			close_box ()
+
+	| term -> print_path_term term
+
+(* Print path terms *)
+and print_path_term = function
+
+	TmProjection (t, s) ->
+			open_box 1;
+			print_path_term t;
+			print_string ".";
+			print_string s;
+			close_box ()
+
+	| term -> print_atomic_term term
+
+(* Print atomic terms *)
+and print_atomic_term = function
+	
+	TmTrue ->
+			open_box 1;
+			print_string "true";
+			close_box ()
+	
+	| TmFalse ->
+			open_box 1;
+			print_string "false";
+			close_box ()
+
+	| TmVar v ->
+			open_box 1;
+			print_string v;
+			close_box ()
+	
+	| TmZero ->
+			open_box 1;
+			print_string "0";
+			close_box ()
+
+	| TmString s ->
+			open_box 1;
+			print_string "\"";
+			print_string s;
+			print_string "\"";
+			close_box ()
+	
+	| TmTuple ts ->
+			open_box 1;
+			print_string "{";
+			print_tuple ts;
+			print_string "}";
+			close_box ()
+	
+	| TmRecord ts ->
+			open_box 1;
+			print_string "{";
+			print_record ts;
+			print_string "}";
+			close_box ()
+
+	| TmTag (s, t, ty) ->
+			open_box 1;
+			print_string "<";
+			print_string s;
+			print_string " = ";
+			print_space ();
+			print_term t;
+			print_string ">";
+			print_string " as ";
+			print_type ty;
+			close_box ()
+	
+	| TmCase (t, ts) ->
+			open_box 1;
+			print_string "case ";
+			print_term t;
+			print_string " of ";
+			print_space ();
+			print_cases ts;
+			close_box ()
+	| TmNil ty ->
+			open_box 1;
+			print_string "nil[";
+			print_type ty;
+			print_string "]";
+			close_box ()
+
+	| TmCons (ty, t1, t2) ->
+        open_box 1;
+        print_string "cons[";
+        print_type ty;
+        print_string "] ";
+        print_app_term t1;
+        print_string " ";
+        let aux = function
+            TmNil _ -> print_atomic_term t2
+            | _ -> print_string"(";
+                    print_atomic_term t2;
+                    print_string ")"
+        in aux t2;
+        close_box ()
+
+	| TmisEmpty (ty, t) ->
+			open_box 1;
+			print_string "isnil[";
+			print_type ty;
+			print_string "] ";
+			print_space ();
+			print_term t;
+			close_box ()
+	| TmHead (ty, t) ->
+			open_box 1;
+			print_string "head[";
+			print_type ty;
+			print_string "] ";
+			print_space ();
+			print_term t;
+			close_box ()
+	| TmTail (ty, t) ->
+			open_box 1;
+			print_string "tail[";
+			print_type ty;
+			print_string "] ";
+			print_space ();
+			print_term t;
+			close_box ()
+	
+	| term -> 
+			open_box 1;
+			print_string "(";
+			print_term term;
+			print_string ")";
+			close_box ()
+
+and print_tuple = function
+	[] -> ()
+	| [x] -> print_term x
+	| x :: xs ->
+			print_term x;
+			print_string ", ";
+			print_space ();
+			print_tuple xs
+
+and print_record = function
+	[] -> ()
+	| [(s, t)] -> print_string s; print_string " = "; print_term t
+	| (s, t) :: xs ->
+			print_string s;
+			print_string " = ";
+			print_term t;
+			print_string ", ";
+			print_space ();
+			print_record xs
+
+and print_cases = function
+	[] -> ()
+	| [(name, v, t)] -> 
+			print_string "<";
+			print_string name;
+			print_string " = ";
+			print_string v;
+			print_string "> => ";
+			print_space ();
+			print_term t
+	| (name, v, t) :: xs ->
+			print_string "<";
+			print_string name;
+			print_string " = ";
+			print_string v;
+			print_string "> => ";
+			print_space ();
+			print_term t;
+			print_string " | ";
+			print_space ();
+			print_cases xs
+
+(* Entry points for printing *)
+let print_eval tm ty =
+
+	open_box 1;
+	print_string "- : ";
+	print_type ty;
+	print_string " = ";
+	print_space ();
+	print_term tm;
+	close_box ();
+	force_newline ();
+	print_flush ()
+
+let print_bind s tm ty =
+
+	open_box 1;
+	print_string s;
+	print_string " : ";
+	print_type ty;
+	print_string " = ";
+	print_space ();
+	print_term tm;
+	close_box ();
+	force_newline ();
+	print_flush ()
+
+let print_tbind s ty =
+
+	open_box 1;
+	print_string "type ";
+	print_string s;
+	print_string " = ";
+	print_space ();
+	print_type ty;
+	close_box ();
+	force_newline ();
+	print_flush ()
+  
 
 (* TYPE MANAGEMENT (TYPING) *)
 
@@ -124,7 +540,14 @@ let rec string_of_ty ty = match ty with
       |((s,ty)::t) -> s ^ ":" ^ (string_of_ty ty) ^ "," ^ print t
     in "{" ^ (print tyr) ^ "}" 
 
-  | TyList ty -> "List[" ^ string_of_ty ty ^ "]" 
+| TyList ty -> "[" ^ string_of_ty ty ^ "]"
+  | TyVariant l -> 
+    let rec loop s tup =
+      match tup with
+        | [] -> s
+        | [(str, t)] -> (s ^ (str ^ ": " ^ string_of_ty t))
+        | (str, t) :: tail -> loop (s ^ (str ^ ": " ^ string_of_ty t ^ "," )) tail
+    in (loop "<" l ) ^ ">"   
   
 ;;
 
@@ -142,82 +565,6 @@ let rec subtypeof tm1 tm2 = match (tm1, tm2) with
       in contains l1 l2
   | (tm1, tm2) -> tm1 = tm2
 ;;
-
-let rec print_type = function
-  TyArr (t1, t2) ->
-    open_box 1;
-    print_atomic_type t1;
-    close_box();
-    print_string "->";
-    print_space ();
-    open_box 1;
-    print_type t2;
-    close_box ();
-    ()
-  | TyTuple [] -> print_string "{}"
-  | TyTuple l ->
-    let rec aux = function
-      [] -> ()
-      | (ty):: [] ->
-        print_type ty;
-        ()
-      | (ty) :: t ->
-        print_type ty;
-        print_char ',';
-        print_space ();
-        aux t;
-    in
-      print_char '{';
-      open_box 1;
-      aux l;
-      close_box ();
-      print_char '}';
-      ()
-  | TyRecord [] -> print_string "{}"
-  (*TyRecord l when isnat (fst (List.hd l)) -> TODO: entender este caso*)
-  | TyRecord l ->
-    let rec aux = function
-      [] -> ()
-      | (fn, ty):: [] ->
-        print_string fn;
-        print_char '=';
-        print_type ty;
-        ()
-      | (fn, ty) :: t ->
-        print_string fn;
-        print_char '=';
-        print_type ty;
-        print_char ',';
-        print_space ();
-        aux t;
-    in
-      print_char '{';
-      open_box 1;
-      aux l;
-      close_box ();
-      print_char '}';
-        ()
-    | TyList ty ->
-    print_string "List";
-    open_box 1;
-    print_type ty;
-    close_box ();
-    ()
-    | ty -> print_atomic_type ty;
-
-    and print_atomic_type = function
-    TyBool -> print_string "Bool"; ()
-    | TyNat -> print_string "Nat"; ()
-    | TyString -> print_string "String"; ()
-    | ty ->
-      print_char '(';
-      open_box 1;
-      print_type ty;
-      close_box ();
-      print_char ')';
-      ()
-  ;;
-
 
 
 let rec typeof ctx tm = match tm with
@@ -347,254 +694,34 @@ let rec typeof ctx tm = match tm with
   | TmisEmpty (ty,t) ->
       if typeof ctx t = TyList(ty) then TyBool
       else raise (Type_error ("Argument of isempty is not a List"))
-      
+       (* T-Variant *)
+  | TmTag (s, t1, ty) ->
+    let tyT1 = base_ty ctx ty in
+      (match tyT1 with
+        TyVariant ty' ->
+          if List.mem_assoc s ty' then
+            if List.assoc s ty' = typeof ctx t1 then tyT1
+            else raise (Type_error "field does not match")
+          else raise (Type_error "field not found")
+        | _ -> raise (Type_error "expected variant type"))
+
+    (* T-Case *)
+  | TmCase (t, cases) ->
+    (match typeof ctx t with
+      TyVariant ty ->
+        let rec aux = function
+          (s, x, t) :: t' ->
+            let ctx' = addtbinding ctx x (List.assoc s ty) in
+              if typeof ctx' t = typeof ctx (TmVar x) then aux t'
+              else raise (Type_error "case arms do not match")
+          | [] -> List.assoc "result" ty
+        in aux cases
+      | _ -> raise (Type_error "expected variant type"))
+
  ;;
 
- let rec print_term =
-  let rec print_sequential = function
-    TmApp(TmAbs (_, _, t2), t1) ->
-      open_box 1;
-        print_term t1;
-      close_box ();
-      print_char ';';
-      print_space ();
-      print_sequential t2;
-      ()
-      | tm ->
-        open_box 1;
-          print_tm tm;
-        close_box();
-        ()
-    and print_tm = function
-      TmIf (t1, t2, t3) ->
-          print_string "if";
-        print_space ();
-        open_box 1;
-          print_tm t1;
-        close_box ();
-        print_space ();
-        print_string "then";
-        print_space ();
-        open_box 1;
-          print_tm t2;
-        close_box ();
-        print_space ();
-        print_string "else";
-        print_space ();
-        open_box 1;
-          print_tm t3;
-        close_box ();
-        ()
-      | TmAbs (s, ty, t) ->
-        open_box 1;
-          print_string "lambda";
-          print_space ();
-          print_string s;
-          print_char ':';
-          print_type ty;
-          print_char '.';
-          print_space ();
-          print_term t;
-        close_box ();
-        ()
-      | TmLetIn (s, t1, t2) ->
-        print_string "let";
-        print_space ();
-        print_string s;
-        print_space ();
-        print_char '=';
-        print_space ();
-        open_box 1;
-          print_tm t1;
-        close_box ();
-        print_space ();
-        print_string "in";
-        print_space ();
-        open_box 1;
-          print_tm t2;
-        close_box ();
-        ()
-      | TmFix t ->
-        open_box 1;
-          print_string "fix";
-          print_space ();
-          print_tm t;
-        close_box ();
-        ()
-      | tm -> print_app tm; ()
-  
-      (*applications*)
-    and print_app = function
-      TmApp (t1, t2) ->
-        open_box 1;
-          print_projection t1;
-          print_space ();
-          print_projection t2;
-        close_box ();
-        ()
-      | TmPred t ->
-        print_string "pred";
-        print_space ();
-        open_box 1;
-          print_projection t;
-        close_box ();
-        ()
-      | TmIsZero t ->
-        print_string "iszero";
-        print_space ();
-        open_box 1;
-          print_projection t;
-        close_box ();
-        ()
-      | TmConcat (t1, t2) ->
-        open_box 1;
-          print_concat t1;
-        close_box ();
-        print_space ();
-        print_char '^';
-        print_space ();
-        open_box 1;
-          print_projection t2;
-        close_box ();
-        ()
-      | TmisEmpty (ty, t) ->
-        print_string "isEmpty";
-        print_cut ();
-        print_char '[';
-        print_type ty;
-        print_char ']';
-        print_space ();
-        open_box 1;
-          print_projection t;
-        close_box ();
-        ()
-      | TmHead (ty, t) ->
-        print_string "head";
-        print_cut ();
-        print_char '[';
-        print_type ty;
-        print_char ']';
-        print_space ();
-        open_box 1;
-          print_projection t;
-        close_box ();
-        ()
-      | TmTail (ty, t) ->
-        print_string "tail";
-        print_cut ();
-        print_char '[';
-        print_type ty;
-        print_char ']';
-        print_space ();
-        open_box 1;
-          print_projection t;
-        close_box ();
-        ()
-      | tm -> print_projection tm; ()
-  
-    and print_concat = function
-      TmConcat (t1, t2) ->
-        open_box 1;
-          print_concat t1;
-        close_box ();
-        print_space ();
-        print_char '^';
-        print_space ();
-        open_box 1;
-          print_projection t2;
-        close_box ();
-        ()
-    | tm ->
-        open_box 1;
-          print_projection tm;
-        close_box ();
-        ()
-      (*projections*)
-    and print_projection = function
-      TmProjection (t1, fn) ->
-        open_box 1;
-          print_projection t1;
-        close_box ();
-        print_char '.';
-        print_string fn;
-      | TmRecord [] as tm -> print_atomic tm
-      (* tmRecord if isnar  TODO: understand this case *)
-      | TmRecord list ->
-        let rec aux = function
-          [] ->
-            ()
-          | (fn,tm)::[] ->
-            print_string fn;
-            print_char '=';
-            print_projection tm;
-            ()
-          | (fn,tm)::t ->
-            print_string fn;
-            print_char '=';
-            print_projection tm;
-            print_char ',';
-            print_space ();
-            aux t;
-        in
-          print_char '{';
-          open_box 1;
-            aux list;
-          close_box ();
-          print_char '}';
-          ()
-      | TmTuple [] as tm -> print_atomic tm
-      (* tmRecord if isnar  TODO: understand this case *)
-      | TmTuple list ->
-        let rec aux = function
-          [] ->
-            ()
-          | tm::[] ->
-            print_projection tm;
-            ()
-          | tm::t ->
-            print_projection tm;
-            print_char ',';
-            print_space ();
-            aux t;
-        in
-          print_char '{';
-          open_box 1;
-            aux list;
-          close_box ();
-          print_char '}';
-          ()
-      | tm -> print_atomic tm; ();
-      (*atomic values*)
-    and print_atomic = function
-      TmTrue -> print_string "true"; ()
-      | TmFalse -> print_string "false"; ()
-      | TmZero -> print_char '0'; ()
-      | TmVar s -> print_string s; ()
-      | TmSucc t ->
-        let rec f n t' = match t' with
-            TmZero -> print_int n; ()
-          | TmSucc s -> f (n+1) s
-          | _ ->
-            print_string "succ";
-            print_space ();
-            open_box 1;
-              print_projection t;
-            close_box ();
-            ()
-        in f 1 t
-      | TmString s -> print_string s; ()
-      | TmRecord [] -> print_string "{}"; ()
-      | tm ->
-        print_char '(';
-        open_box 1;
-          print_sequential tm;
-        close_box ();
-        print_char ')';
-        ()
-    in fun tm -> print_sequential tm
-  ;;
 (* TERMS MANAGEMENT (EVALUATION) *)
-
+(* 
 let rec string_of_term = function
     TmTrue ->
       "true"
@@ -658,7 +785,18 @@ let rec string_of_term = function
       "nil[" ^ string_of_ty ty ^ "]"
   | TmisEmpty (ty,t) ->
      "isempty[" ^ string_of_ty ty ^ "]"   
-;;
+  | TmTag (str, t, ty) ->
+      "<" ^ str ^ " = " ^ string_of_term t ^ ">"   
+  | TmCase(t, l) -> 
+      let string = " case " ^ string_of_term t ^ " of " in
+      let rec aux list string2 = match list with
+    [] -> string2
+  | (s1, s2, term)::tail -> 
+    let string3 = string2 ^ "<" ^ s1 ^ "," ^ s2 ^ "> => " ^ string_of_term term in
+    aux tail string3
+
+      in aux l string  
+;; *)
 
 let rec ldif l1 l2 = match l1 with
     [] -> []
@@ -725,6 +863,14 @@ let rec free_vars tm = match tm with
     []
   | TmisEmpty (ty,t) ->
       free_vars t
+  | TmTag (_, t, _) ->
+    free_vars t
+  | TmCase (t, cases) ->
+    let rec aux = function
+      (s, x, t) :: [] -> lunion (free_vars t) (ldif (free_vars (TmVar x)) [s])
+      | (s, x, t) :: t' -> lunion (lunion (free_vars t) (ldif (free_vars (TmVar x)) [s])) (aux t')
+      | [] -> []
+    in lunion (free_vars t) (aux cases)
 ;;
 
 
@@ -797,6 +943,11 @@ let rec subst x s tm = match tm with
       tm
   | TmisEmpty (ty,t) ->
       TmisEmpty(ty,subst x s t)
+| TmTag (name, t, ty) ->
+      TmTag (name, subst x s t, ty)
+  | TmCase (t, cases) ->
+      TmCase (subst x s t, List.map (fun (name, var, term) -> if var = x then (name, var, term) else (name, var, subst x s term)) cases)
+
 ;;
 
 let rec isnumericval tm = match tm with
@@ -815,6 +966,8 @@ let rec isval tm = match tm with
   | TmRecord list -> List.for_all (fun t -> isval t) (List.map snd list)
   | TmCons(_,h,t) -> (isval h) && (isval t)
   | TmNil _-> true
+  | TmTag (_, t, _) -> isval t
+  | TmCase (t, cases) -> isval t && List.for_all (fun (_, _, t) -> isval t) cases
   | _ -> false
   
 ;;
@@ -869,7 +1022,7 @@ let rec eval1 ctx tm = match tm with
 
     (* E-AppAbs *)
   | TmApp (TmAbs(x, _, t12), v2) when isval v2 ->
-      subst x v2 t12
+      subst x v2 t12 
 
     (* E-App2: evaluate argument before applying function *)
   | TmApp (v1, t2) when isval v1 ->
@@ -962,6 +1115,19 @@ let rec eval1 ctx tm = match tm with
   | TmisEmpty(ty,TmNil(_)) -> TmTrue
   | TmisEmpty(ty,TmCons(_,_,_)) -> TmFalse
   | TmisEmpty(ty,t) -> TmisEmpty(ty,eval1 ctx t)
+   (* E-Tag *)
+   | TmTag (name, t, ty) ->
+    let t' = eval1 ctx t in
+    TmTag (name, t', ty)
+
+  (* E-Case *)
+| TmCase (TmTag (tag, v1, _), cases) when isval v1 ->
+    let (_, var, t) = List.find (fun (_, tg, _) -> tg = tag) cases in subst var v1 t 
+
+  (* E-Case *)
+| TmCase (t, cases) ->
+    let t' = eval1 ctx t in
+    TmCase (t', cases)
   | _ ->
       raise NoRuleApplies
 ;;
@@ -979,7 +1145,7 @@ let rec eval ctx tm =
     NoRuleApplies -> apply_ctx ctx tm
 ;;
 
-let printer s tyTm tm =
+(* let printer s tyTm tm =
   open_box 1;
   print_string s;
   print_space ();
@@ -994,7 +1160,7 @@ let printer s tyTm tm =
   close_box ();
   print_newline();
   print_flush ();
-;;
+;; *)
 
 
 let execute ctx = function  (*cg*)
@@ -1003,19 +1169,22 @@ let execute ctx = function  (*cg*)
       let tm' = eval ctx tm in
       (* print_endline ("- : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');
       ctx *)
-      printer "-" tyTm tm';
-      ctx
+       (* printer "-" tyTm tm'; *)
+       print_eval tm' tyTm;
+      ctx 
 
   | Bind (s, tm) ->
     let tyTm = typeof ctx tm in
       let tm' = eval ctx tm in
-        (* print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm'); *)
-        printer s tyTm tm';
+        (* print_endline (s ^ " : " ^ string_of_ty tyTm ^ " = " ^ string_of_term tm');*)
+        (* printer s tyTm tm';  *)
+        print_bind s tm' tyTm;
         addvbinding ctx s tyTm tm'
 
   | TBind (s, ty) ->
     let bty = base_ty ctx ty in 
-    print_endline (s ^ " : type = " ^ string_of_ty bty);
+    (* print_endline (s ^ " : type = " ^ string_of_ty bty); *)
+    print_tbind s bty;
     addtbinding ctx s bty
 
   | Quit -> 

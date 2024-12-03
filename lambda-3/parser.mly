@@ -1,4 +1,3 @@
-
 %{
   open Lambda;;
 %}
@@ -19,11 +18,14 @@
 %token NAT
 %token LETREC
 %token STRING
-
+%token QUIT
 %token LPAREN
 %token RPAREN
 %token LBRACE
 %token RBRACE
+%token PIPE
+%token CASE
+%token OF
 %token LBRACKET
 %token RBRACKET
 %token COMMA
@@ -31,7 +33,11 @@
 %token EQ
 %token COLON
 %token ARROW
+%token LARROW
+%token RARROW
 %token SEMICOLON
+%token DOUBLEARROW
+%token AS
 %token EOF
 %token HEAD
 %token TAIL
@@ -54,10 +60,13 @@
 s :
    IDT EQ ty EOF
       { TBind ($1, $3) }
-    |IDV EQ term EOF
+    | IDV EQ term EOF
       { Bind ($1, $3) }
-    |term EOF
+    | term EOF
       { Eval $1 }
+    | QUIT EOF
+      { Quit }
+
 term :
     appTerm
       { $1 }
@@ -69,6 +78,10 @@ term :
       { TmLetIn ($2, $4, $6) }
   | LETREC IDV COLON ty EQ term IN term
       { TmLetIn ($2, TmFix (TmAbs ($2, $4, $6)), $8) }
+  | LARROW IDV EQ term RARROW AS ty
+      { TmTag ($2, $4, $7) }
+  | CASE term OF casesTerm
+      { TmCase ($2, $4) }
 
 appTerm :
     pathTerm
@@ -80,25 +93,25 @@ appTerm :
   | ISZERO pathTerm
       { TmIsZero $2 }
   | CONCAT pathTerm pathTerm
-      {TmConcat ($2, $3) }   
-   | CONS LBRACKET ty COLON pathTerm COMMA pathTerm RBRACKET 
-    { TmCons($3,$5,$7)}
-  | HEAD LBRACKET ty RBRACKET pathTerm 
-      {TmHead($3,$5)}
-  | TAIL LBRACKET ty RBRACKET pathTerm
-      {TmTail($3,$5)}  
-  | NIL LBRACKET ty RBRACKET
-      {TmNil ($3)}
-  | ISEMPTY LBRACKET ty RBRACKET pathTerm
-       {TmisEmpty ($3,$5)}
+      { TmConcat ($2, $3) }
   | appTerm pathTerm
       { TmApp ($1, $2) }
+  | HEAD LBRACKET ty RBRACKET pathTerm
+      { TmHead ($3, $5) }
+  | TAIL LBRACKET ty RBRACKET pathTerm
+      { TmTail ($3, $5) }
+  | NIL LBRACKET ty RBRACKET
+      { TmNil ($3) }
+  | ISEMPTY LBRACKET ty RBRACKET pathTerm
+      { TmisEmpty ($3, $5) }
+  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
+      { TmCons ($3, $5, $6) }
 
 pathTerm :
     | pathTerm DOT INTV
-        { TmProjection ($1, (string_of_int $3))}
+        { TmProjection ($1, (string_of_int $3)) }
     | pathTerm DOT IDV
-        { TmProjection ($1, $3)}
+        { TmProjection ($1, $3) }
     | atomicTerm
         { $1 }
 
@@ -113,16 +126,16 @@ atomicTerm :
       { TmVar $1 }
   | INTV
       { let rec f = function
-            0 -> TmZero
-          | n -> TmSucc (f (n-1))
+          0 -> TmZero
+        | n -> TmSucc (f (n-1))
         in f $1 }
- | STRINGV 
-    {TmString $1}
-| LBRACE tupleTerm RBRACE
-    { TmTuple $2 }
-| LBRACE recordTerm RBRACE
-    { TmRecord $2}
-
+  | STRINGV
+      { TmString $1 }
+  
+  | LBRACE tupleTerm RBRACE
+      { TmTuple $2 }
+  | LBRACE recordTerm RBRACE
+      { TmRecord $2 }
 
 ty :
     atomicTy
@@ -137,33 +150,61 @@ atomicTy :
       { TyBool }
   | NAT
       { TyNat }
-  | STRING 
-    { TyString}
-  | LBRACE recty RBRACE
+  | STRING
+      { TyString }
+  | LBRACE tupleTY RBRACE
+      { TyTuple $2 }
+  | LBRACE recordTY RBRACE
       { TyRecord $2 }
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
+  | LARROW nonEmptyRecordTY RARROW
+      { TyVariant $2 }
+  | IDV 
+    {TyString }
+  | IDT
+    {TyVar $1}
+    
 
-tupleTerm:
-    | term 
-        {[$1]}
-    | term COMMA tupleTerm 
-        {$1::$3}
+tupleTY :
+		ty 
+			{ [$1] }
+  | ty COMMA tupleTY 
+			{ $1 :: $3 }   
+
+tupleTerm :
+    | term
+        { [$1] }
+    | term COMMA tupleTerm
+        { $1 :: $3 }
 
 recordTerm :
-    | {[]}
-    | nonemptyrec {$1}
+    | { [] }
+    | nonemptyrec
+        { $1 }
 
-nonemptyrec:
-    | IDV EQ term {[$1,$3]}
-    | IDV EQ term COMMA nonemptyrec {($1,$3)::$5}
+nonemptyrec :
+    | IDV EQ term
+        { [$1, $3] }
+    | IDV EQ term COMMA nonemptyrec
+        { ($1, $3) :: $5 }
 
 
-recty: 
-    | {[]}
-    |nonemptyrecTY {$1}
 
-nonemptyrecTY:
-    | IDV COLON ty {[$1,$3]}
-    | IDV COLON ty COMMA nonemptyrecTY {($1,$3)::$5}
 
+recordTY :
+		{ [] }
+	| nonEmptyRecordTY
+		{ $1 }
+
+nonEmptyRecordTY :
+	IDV COLON ty
+			{ [($1, $3)] }
+	| IDV COLON ty COMMA nonEmptyRecordTY
+			{ ($1, $3) :: $5 }
+
+casesTerm :
+    LARROW IDV EQ IDV RARROW DOUBLEARROW appTerm
+        { [($2, $4, $7)] }
+    | LARROW IDV EQ IDV RARROW DOUBLEARROW term PIPE casesTerm
+        { ($2, $4, $7) :: $9 }

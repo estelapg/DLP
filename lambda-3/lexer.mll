@@ -23,23 +23,31 @@ rule token = parse
   | "letrec"    { LETREC }
   | "concat"    { CONCAT }
   | "String"    { STRING }
-  | "list"      { LIST }
+  | "List"      { LIST }
   | "cons"      { CONS }
   | "nil"       { NIL }   
   | "head"      { HEAD }
   | "tail"      { TAIL }  
-  | "isempty"   { ISEMPTY }
+  | "isnil"   { ISEMPTY }
+  | "case"      { CASE }
+  | "of"        { OF }
   | '('         { LPAREN }
   | ')'         { RPAREN }
   | '{'         { LBRACE }
-  | '}'         { RBRACE } 
+   | "quit"      { QUIT }
+  | '}'         { RBRACE }
+  | "<"         { LARROW }
+  | ">"         { RARROW }
+  | "as"        { AS }  
   | '['         { LBRACKET }
   | ']'         { RBRACKET }
   | ','         { COMMA }
   | '.'         { DOT }
   | '='         { EQ }
   | ':'         { COLON }
+  | "|"         { PIPE }
   | "->"        { ARROW }
+  | "=>"        { DOUBLEARROW}
   | ";;"        { SEMICOLON }
 
   | ['0'-'9']+  { INTV (int_of_string (Lexing.lexeme lexbuf)) }
