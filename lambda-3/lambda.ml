@@ -520,7 +520,7 @@ let print_tbind s ty =
   
 
 (* TYPE MANAGEMENT (TYPING) *)
-
+(* 
 let rec string_of_ty ty = match ty with
     TyBool ->
       "Bool"
@@ -551,8 +551,8 @@ let rec string_of_ty ty = match ty with
         | [(str, t)] -> (s ^ (str ^ ": " ^ string_of_ty t))
         | (str, t) :: tail -> loop (s ^ (str ^ ": " ^ string_of_ty t ^ "," )) tail
     in (loop "<" l ) ^ ">"   
-  
-;;
+    | TyVar s -> s
+;; *)
 
 
 let rec subtypeof tm1 tm2 = match (tm1, tm2) with
@@ -572,7 +572,13 @@ let rec subtypeof tm1 tm2 = match (tm1, tm2) with
 
 let rec typeof ctx tm = 
 
-
+  let rec obtTy = function
+  TyVar t -> gettbinding ctx t
+| s -> s in
+let rec tyarrowtolarge = function
+    TyArr (t1,t2) -> (TyArr(tyarrowtolarge t1,tyarrowtolarge t2))
+    | TyList t -> TyList (obtTy t)
+    | s -> (obtTy s) in
   match tm with
 
     (* T-True *)
@@ -681,26 +687,25 @@ let rec typeof ctx tm =
           (try List.nth tyr (int_of_string s - 1) with
              _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
             | _ -> raise (Type_error "Projection is only supported on tuples"))
+ | TmCons (ty,h,t) ->
+        let tyTh = obtTy(typeof ctx h) in
+          let tyTt = obtTy(typeof ctx t) in
+            if ((subtypeof (tyarrowtolarge(tyTh)) (tyarrowtolarge(obtTy(ty)))) && (subtypeof (TyList(tyarrowtolarge((obtTy ty)))) (tyarrowtolarge(tyTt)))) then 
+              TyList(ty) else raise (Type_error "elements of list have different types")
 
-  | TmCons(ty,h,t) ->
-      let tyTh = typeof ctx h in 
-        let tyTt = typeof ctx t in 
-           if (subtypeof tyTh ty) && (subtypeof tyTt (TyList(ty))) then 
-              TyList(ty) else raise (Type_error "elements of list have 
-            different types")
   | TmHead (ty,t) ->
       if typeof ctx t = TyList(ty) then ty
-      else raise (Type_error ("head is not a List of" ^ (string_of_ty ty)))
+      else raise (Type_error ("argument of head is not a List"))
 
 
   | TmTail (ty,t) ->
       if typeof ctx t = TyList(ty) then TyList(ty)
-      else raise (Type_error ("tail is not a List of" ^ (string_of_ty ty)))
+      else raise (Type_error ("argument of tail is not a List"))
   | TmNil ty ->
       TyList ty
   | TmisEmpty (ty,t) ->
       if typeof ctx t = TyList(ty) then TyBool
-      else raise (Type_error ("Argument of isempty is not a List"))
+      else raise (Type_error ("argument of isempty is not a List"))
        (* T-Variant *)
   | TmTag (s, t1, ty) ->
     let tyT1 = base_ty ctx ty in
@@ -714,33 +719,20 @@ let rec typeof ctx tm =
 
    
   (* T-Case *)
-  | TmCase (tm, (nametm, p, t1) :: l) ->
-    let rec buscartipovariable n ty =
-      match ty with
-      | TyVariant [] -> raise (Type_error ("Error1"))
-      | TyVariant ((name, ty1) :: t) -> 
-          if name = n then ty1 else buscartipovariable n (TyVariant t)
-      | TyVar s -> buscartipovariable n (gettbinding ctx s)
-      | _ -> raise (Type_error ("Error2"))
-    in
-    let rec obtTy ty =
-      match ty with
-      | TyVar t -> gettbinding ctx t
-      | s -> s
-    in
-    let tipopname = buscartipovariable nametm (obtTy (typeof ctx tm)) in
-    let ctx2 = addtbinding ctx p tipopname in
+  | TmCase (tm,(nametm,p,t1)::l) ->
+    let rec buscartipovariable n = function
+      TyVariant [] -> raise (Type_error ("Error1"))
+      | TyVariant ((name,ty1)::t) -> if (name=n) then obtTy(ty1) else (buscartipovariable n (TyVariant t))
+      | TyVar s ->(buscartipovariable n (gettbinding ctx s))
+      | _-> raise (Type_error ("Error2")) in
+    let tipopname = buscartipovariable nametm (obtTy(typeof ctx tm)) in
+    let ctx2 = (addtbinding ctx p tipopname) in
     let tyHead = typeof ctx2 t1 in
     let rec tipo t2 = function
-      | [] -> obtTy t2
-      | (pname2, pname, t1) :: t ->
-          let ctx' = addtbinding ctx pname (buscartipovariable pname2 (obtTy (typeof ctx tm))) in
-          if t2 = typeof ctx' t1 then tipo t2 t
-          else raise (Type_error ("tipos incompatibles en el case"))
-    in
-    tipo tyHead l
-| TmCase (_, []) -> raise (Type_error ("cases required"))
-
+    [] -> obtTy(t2)
+    | (pname2,pname,t1)::t ->let ctx' = (addtbinding ctx pname (buscartipovariable pname2 (obtTy(typeof ctx tm)))) in if(t2=(typeof ctx' t1)) then (tipo t2 t) else (raise (Type_error ("tipos imcompatibles en el case")))
+  in (tipo tyHead l)
+  | TmCase (_,[]) -> (raise (Type_error ("cases required")))
  ;;
 
 (* TERMS MANAGEMENT (EVALUATION) *)

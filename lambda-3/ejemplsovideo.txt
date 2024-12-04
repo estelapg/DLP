@@ -269,12 +269,63 @@ tendria que dar:
 NO FUNCIONA(ejecutar antes prod y sum)
 
 >> cons[N3] sum nil[N3];;
-type error: elements of list have 
-            different types
-            
->> cons[N3] prod (cons[N3] sum nil[N3]);;
-type error: elements of list have 
-            different types
+- : List[N3] = 
+ cons[N3] (lambda n : Nat. 
+            lambda m : Nat. 
+             if iszero  n then  m else 
+              succ (fix 
+                     (lambda sum : Nat-> Nat-> Nat. 
+                       lambda n : Nat. 
+                        lambda m : Nat. 
+                         if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+                     (pred  n)  m)) nil[N3]
+
+cons[N3] prod (cons[N3] sum nil[N3]);;
+- : List[N3] = 
+ cons[N3] (lambda n : Nat. 
+            lambda m : Nat. 
+             if iszero  m then  0 else 
+              (lambda n : Nat. 
+                lambda m : Nat. 
+                 if iszero  n then  m else 
+                  succ (fix 
+                         (lambda sum : Nat-> Nat-> Nat. 
+                           lambda n : Nat. 
+                            lambda m : Nat. 
+                             if iszero  n then  m else 
+                              succ (sum  (pred  n)  m)) 
+                         (pred  n)  m)) 
+               n 
+               (fix 
+                 (lambda prod : Nat-> Nat-> Nat. 
+                   lambda n : Nat. 
+                    lambda m : Nat. 
+                     if iszero  m then  0 else 
+                      (lambda n : Nat. 
+                        lambda m : Nat. 
+                         if iszero  n then  m else 
+                          succ (fix 
+                                 (lambda sum : Nat-> Nat-> Nat. 
+                                   lambda n : Nat. 
+                                    lambda m : Nat. 
+                                     if iszero  n then  m else 
+                                      succ (sum  (pred  n)  m)) 
+                                 (pred  n)  m)) 
+                       n  (prod  n  (pred  m))) 
+                 n  (pred  m))) (cons[N3] (lambda n : Nat. 
+                                            lambda m : Nat. 
+                                             if iszero  n then  m else 
+                                              succ (fix 
+                                                     (lambda sum : Nat->
+                                                       Nat-> Nat. 
+                                                       lambda n : Nat. 
+                                                        lambda m : Nat. 
+                                                         if iszero  n then  
+                                                          m else 
+                                                          succ (sum 
+                                                                 (pred  n)  
+                                                                 m)) 
+                                                     (pred  n)  m)) nil[N3])
 
 
 ////////////SUBTIPADO////////////

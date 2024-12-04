@@ -66,7 +66,7 @@ val addvbinding : context -> string -> ty -> term -> context;;
 val gettbinding : context -> string -> ty;;
 val getvbinding : context -> string -> term;;
 
-val string_of_ty : ty -> string;;
+(* val string_of_ty : ty -> string;; *)
 exception Type_error of string;;
 val typeof : context -> term -> ty;;
 (* 

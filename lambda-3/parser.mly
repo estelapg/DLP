@@ -52,6 +52,7 @@
 %token <string> IDT
 %token <string> STRINGV
 
+
 %start s
 %type <Lambda.command> s
 
