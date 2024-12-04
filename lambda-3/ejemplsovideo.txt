@@ -138,7 +138,13 @@ is_zero n5;;
 
 //////////////////////LISTAS//////////////////
 
->> l = cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil [Nat]));;
+>> nil[Nat];;
+- : List[Nat] =  nil[Nat]
+
+>> cons[Nat] 5 (cons[Nat] 3 nil[Nat]);;
+- : List[Nat] =  cons[Nat] 5 (cons[Nat] 3 nil[Nat])
+
+>> l = cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat]));;
 l : List[Nat] =  cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat]))
 
 >> isnil[Nat] l;;
@@ -150,12 +156,27 @@ l : List[Nat] =  cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat]))
 >> tail[Nat] l;;
 - : List[Nat] =  cons[Nat] 5 (cons[Nat] 7 nil[Nat])
 
-
-
-esto para el examples.txt:
+estos tres para el examples.txt:
 
 
 (*PROD*)
+
+(*SUM*)
+>> sum = letrec sum: Nat -> Nat -> Nat = 
+        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
+    in sum;;
+sum : Nat-> Nat-> Nat = 
+ lambda n : Nat. 
+  lambda m : Nat. 
+   if iszero  n then  m else 
+    succ (fix 
+           (lambda sum : Nat-> Nat-> Nat. 
+             lambda n : Nat. 
+              lambda m : Nat. 
+               if iszero  n then  m else  succ (sum  (pred  n)  m)) 
+           (pred  n)  m)
+
+
 >> prod = 
         letrec prod : Nat -> Nat -> Nat =
                 lambda n : Nat. lambda m : Nat. if iszero m then 0 else sum n (prod n (pred m))
@@ -194,20 +215,6 @@ prod : Nat-> Nat-> Nat =
              n  (prod  n  (pred  m))) 
        n  (pred  m))
 
-(*SUM*)
->> sum = letrec sum: Nat -> Nat -> Nat = 
-        lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
-    in sum;;
-sum : Nat-> Nat-> Nat = 
- lambda n : Nat. 
-  lambda m : Nat. 
-   if iszero  n then  m else 
-    succ (fix 
-           (lambda sum : Nat-> Nat-> Nat. 
-             lambda n : Nat. 
-              lambda m : Nat. 
-               if iszero  n then  m else  succ (sum  (pred  n)  m)) 
-           (pred  n)  m)
 
 (*LENGTH*)
 >> length = 
@@ -245,11 +252,19 @@ length : List[Nat]-> Nat =
            (1)  (length  tail[Nat]  l)) 
       tail[Nat]  l)
 
+>> length l;;
+- : Nat =  3
+
+>> l;;
+- : List[Nat] =  cons[Nat] 8 (cons[Nat] 5 (cons[Nat] 7 nil[Nat]))
 
 >> N3 = Nat -> Nat -> Nat;;
 type N3 =  Nat-> Nat-> Nat
 >> nil[N3];;
 - : List[N3] =  nil[N3]
+
+tendria que dar:
+-: List[Nat->Nat->Nat] = nil[N3]
 
 NO FUNCIONA(ejecutar antes prod y sum)
 
@@ -260,3 +275,15 @@ type error: elements of list have
 >> cons[N3] prod (cons[N3] sum nil[N3]);;
 type error: elements of list have 
             different types
+
+
+////////////SUBTIPADO////////////
+
+>> {};;
+- : {} =  {}
+
+>> let idr = lambda r: {}. r in idr {x=0,y=1};;
+- : {} =  {x = 0,  y = 1}
+
+>> (lambda r : {x:Nat}. r.x) {x=0,y=1};;
+- : Nat =  0

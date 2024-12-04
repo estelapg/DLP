@@ -31,8 +31,11 @@ type term =
   | TmFix of term 
   | TmString of string 
   | TmConcat of term * term 
-  | TmTuple of term list
   | TmProjection of term * string
+
+
+  | TmTuple of term list
+  
   | TmRecord of (string * term) list
 
   | TmHead of ty * term
@@ -567,7 +570,11 @@ let rec subtypeof tm1 tm2 = match (tm1, tm2) with
 ;;
 
 
-let rec typeof ctx tm = match tm with
+let rec typeof ctx tm = 
+
+
+  match tm with
+
     (* T-True *)
     TmTrue ->
       TyBool
@@ -705,18 +712,34 @@ let rec typeof ctx tm = match tm with
           else raise (Type_error "field not found")
         | _ -> raise (Type_error "expected variant type"))
 
-    (* T-Case *)
-  | TmCase (t, cases) ->
-    (match typeof ctx t with
-      TyVariant ty ->
-        let rec aux = function
-          (s, x, t) :: t' ->
-            let ctx' = addtbinding ctx x (List.assoc s ty) in
-              if typeof ctx' t = typeof ctx (TmVar x) then aux t'
-              else raise (Type_error "case arms do not match")
-          | [] -> List.assoc "result" ty
-        in aux cases
-      | _ -> raise (Type_error "expected variant type"))
+   
+  (* T-Case *)
+  | TmCase (tm, (nametm, p, t1) :: l) ->
+    let rec buscartipovariable n ty =
+      match ty with
+      | TyVariant [] -> raise (Type_error ("Error1"))
+      | TyVariant ((name, ty1) :: t) -> 
+          if name = n then ty1 else buscartipovariable n (TyVariant t)
+      | TyVar s -> buscartipovariable n (gettbinding ctx s)
+      | _ -> raise (Type_error ("Error2"))
+    in
+    let rec obtTy ty =
+      match ty with
+      | TyVar t -> gettbinding ctx t
+      | s -> s
+    in
+    let tipopname = buscartipovariable nametm (obtTy (typeof ctx tm)) in
+    let ctx2 = addtbinding ctx p tipopname in
+    let tyHead = typeof ctx2 t1 in
+    let rec tipo t2 = function
+      | [] -> obtTy t2
+      | (pname2, pname, t1) :: t ->
+          let ctx' = addtbinding ctx pname (buscartipovariable pname2 (obtTy (typeof ctx tm))) in
+          if t2 = typeof ctx' t1 then tipo t2 t
+          else raise (Type_error ("tipos incompatibles en el case"))
+    in
+    tipo tyHead l
+| TmCase (_, []) -> raise (Type_error ("cases required"))
 
  ;;
 
@@ -866,11 +889,11 @@ let rec free_vars tm = match tm with
   | TmTag (_, t, _) ->
     free_vars t
   | TmCase (t, cases) ->
-    let rec aux = function
-      (s, x, t) :: [] -> lunion (free_vars t) (ldif (free_vars (TmVar x)) [s])
-      | (s, x, t) :: t' -> lunion (lunion (free_vars t) (ldif (free_vars (TmVar x)) [s])) (aux t')
-      | [] -> []
-    in lunion (free_vars t) (aux cases)
+    let rec get_free = function
+    [] ->[]  
+    | ((_,s,term)::[]) -> (ldif (free_vars term) [s])
+    |((_,s,term)::termt) -> lunion (ldif (free_vars term) [s]) (get_free termt)
+   in (lunion (free_vars t) (get_free cases))
 ;;
 
 
@@ -945,9 +968,12 @@ let rec subst x s tm = match tm with
       TmisEmpty(ty,subst x s t)
 | TmTag (name, t, ty) ->
       TmTag (name, subst x s t, ty)
-  | TmCase (t, cases) ->
-      TmCase (subst x s t, List.map (fun (name, var, term) -> if var = x then (name, var, term) else (name, var, subst x s term)) cases)
-
+| TmCase (t1, l) ->
+        let rec sustincases = function 
+        []-> []
+        | ((s1,s2,ter)::t) -> ((s1,s2,(subst x s ter))::(sustincases t))
+        in (TmCase ((subst x s t1), (sustincases l)))
+    ;;
 ;;
 
 let rec isnumericval tm = match tm with
@@ -1121,13 +1147,14 @@ let rec eval1 ctx tm = match tm with
     TmTag (name, t', ty)
 
   (* E-Case *)
-| TmCase (TmTag (tag, v1, _), cases) when isval v1 ->
-    let (_, var, t) = List.find (fun (_, tg, _) -> tg = tag) cases in subst var v1 t 
+  | TmCase ((TmTag(s, t1, ty)),l)  ->
+    let rec buscar = function
+    [] -> raise (Type_error ("Error"))
+    | (namePos,nameVar,t2)::t -> if (namePos=s) then (nameVar,t2) else (buscar t)
+  in let (nameVar,t2) = buscar l in
+    (subst nameVar t1 t2) 
+  | TmCase (_,_) ->raise (Type_error ("Error"))
 
-  (* E-Case *)
-| TmCase (t, cases) ->
-    let t' = eval1 ctx t in
-    TmCase (t', cases)
   | _ ->
       raise NoRuleApplies
 ;;

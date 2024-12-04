@@ -104,10 +104,13 @@ appTerm :
       { TmNil ($3) }
   | ISEMPTY LBRACKET ty RBRACKET pathTerm
       { TmisEmpty ($3, $5) }
-  | CONS LBRACKET ty RBRACKET atomicTerm atomicTerm
-      { TmCons ($3, $5, $6) }
+  | CONS LBRACKET ty RBRACKET pathTerm pathTerm
+       { TmCons ($3, $5, $6) }
+
 
 pathTerm :
+     NIL LBRACKET ty RBRACKET
+      { TmNil ($3) }
     | pathTerm DOT INTV
         { TmProjection ($1, (string_of_int $3)) }
     | pathTerm DOT IDV
@@ -188,8 +191,6 @@ nonemptyrec :
         { [$1, $3] }
     | IDV EQ term COMMA nonemptyrec
         { ($1, $3) :: $5 }
-
-
 
 
 recordTY :

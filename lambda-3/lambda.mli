@@ -1,3 +1,4 @@
+
 type ty =
     TyBool
   | TyNat
@@ -8,6 +9,7 @@ type ty =
   | TyList of ty
   | TyVariant of (string * ty) list
   | TyVar of string
+
 ;;
 
 type term =
@@ -22,21 +24,25 @@ type term =
   | TmAbs of string * ty * term
   | TmApp of term * term
   | TmLetIn of string * term * term
-  | TmFix of term
+  | TmFix of term 
   | TmString of string 
-  | TmConcat of term * term
+  | TmConcat of term * term 
+  | TmProjection of term * string
+
+
   | TmTuple of term list
-  | TmProjection of term * string 
+  
   | TmRecord of (string * term) list
+
   | TmHead of ty * term
   | TmTail of ty * term
   | TmCons of ty * term * term
   | TmNil of ty
   | TmisEmpty of ty * term
+
   | TmTag of string * term * ty
   | TmCase of term * (string * string * term) list
 ;;
-
 type command = 
   Eval of term 
 | Bind of string * term 
