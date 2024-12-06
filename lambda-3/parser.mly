@@ -14,6 +14,7 @@
 %token LET
 %token IN
 %token CONCAT 
+%token LENGTH
 %token BOOL
 %token NAT
 %token LETREC
@@ -95,6 +96,8 @@ appTerm :
       { TmIsZero $2 }
   | CONCAT pathTerm pathTerm
       { TmConcat ($2, $3) }
+  | LENGTH atomicTerm
+      { TmLength $2}
   | appTerm pathTerm
       { TmApp ($1, $2) }
   | HEAD LBRACKET ty RBRACKET pathTerm

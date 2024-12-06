@@ -22,19 +22,20 @@ rule token = parse
   | "Nat"       { NAT }
   | "letrec"    { LETREC }
   | "concat"    { CONCAT }
+  | "length"    { LENGTH }
   | "String"    { STRING }
   | "List"      { LIST }
   | "cons"      { CONS }
   | "nil"       { NIL }   
   | "head"      { HEAD }
   | "tail"      { TAIL }  
-  | "isnil"   { ISEMPTY }
+  | "isnil"     { ISEMPTY }
   | "case"      { CASE }
   | "of"        { OF }
   | '('         { LPAREN }
   | ')'         { RPAREN }
   | '{'         { LBRACE }
-   | "quit"      { QUIT }
+  | "quit"      { QUIT }
   | '}'         { RBRACE }
   | "<"         { LARROW }
   | ">"         { RARROW }

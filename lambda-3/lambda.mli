@@ -27,6 +27,7 @@ type term =
   | TmFix of term 
   | TmString of string 
   | TmConcat of term * term 
+  | TmLength of term
   | TmProjection of term * string
 
 
