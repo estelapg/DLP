@@ -16,17 +16,17 @@ let top_level_loop () =
   let rec loop ctx =
     print_string ">> ";
     flush stdout;
-    let rec read_until_double_semicolon acc =
+    let rec check_semicolon acc =
       match input_char stdin with
       | ';' ->
         (match input_char stdin with
         | ';' -> acc
-        | c -> read_until_double_semicolon (acc ^ ";;" ^ String.make 1 c)
+        | c -> check_semicolon (acc ^ ";;" ^ String.make 1 c)
         )
-      | c -> read_until_double_semicolon (acc ^ String.make 1 c)
+      | c -> check_semicolon (acc ^ String.make 1 c)
     in
     try
-      let line = remove_newlines(read_until_double_semicolon "") in
+      let line = remove_newlines(check_semicolon "") in
       let tm = s token (from_string (line)) in
       loop (execute ctx tm)
     with

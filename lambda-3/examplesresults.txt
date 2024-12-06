@@ -1,16 +1,20 @@
-(***************2.1-combinador de punto fijo interno************)
+(*****************Multi-line Expressions*************)
+>> let
+        x = 1
+in
+        succ x;;
+- : Nat =  2
+
+(***************Internal Fixed-Point Combinator************)
+
+(*SUM*)
 >> letrec sum: Nat -> Nat -> Nat = 
         lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
     in sum 21 34;;
 - : Nat = 55
 
->> letrec sum : Nat -> Nat -> Nat =
-		lambda n : Nat. lambda m : Nat. if iszero n then m else succ (sum (pred n) m)
-        in sum 21 3;;
-- : Nat = 24
 
-(*PROD*)
->> let prod =
+let prod =
         lambda n : Nat. lambda m : Nat. 
             (letrec aux : Nat -> Nat -> Nat -> Nat = lambda n : Nat. lambda m : Nat. lambda k : Nat.
                 if iszero n then 0
@@ -19,8 +23,37 @@
                                     lambda i : Nat. lambda j : Nat. if iszero i then j else succ (sum (pred i) j) 
                                     in sum m k) k)
         in aux n m m)
-    in prod 5 15;;
-- : Nat = 75
+    in prod 2 16;;
+- : Nat =  32
+
+>>  let fib =
+        lambda n : Nat.
+            (letrec aux : Nat -> Nat -> Nat -> Nat = lambda n : Nat. lambda a : Nat. lambda b : Nat.
+                if iszero n then a
+                else (aux (pred n) (letrec sum : Nat -> Nat -> Nat =
+                                    lambda i : Nat. lambda j : Nat. if iszero i then j else succ (sum (pred i) j) 
+                                    in sum a b) a)
+            in aux n 0 1
+            )
+    in fib 8;;
+- : Nat =  21
+
+>> let fact = 
+        lambda n : Nat.
+            (letrec factaux : Nat -> Nat -> Nat = lambda n : Nat. lambda acc : Nat.
+                if iszero (pred n) then acc
+                else (factaux (pred n) (
+                    letrec prod : Nat -> Nat -> Nat -> Nat = lambda p : Nat. lambda q : Nat. lambda k : Nat.
+                        if iszero p then 1
+                        else if iszero (pred p) then q
+                            else (prod (pred p) (letrec sum :  Nat -> Nat -> Nat = 
+                                    lambda i : Nat. lambda j : Nat.
+                                    if iszero i then j else succ(sum (pred i) j)
+                                in sum q k) k)
+                    in prod n acc acc))           
+            in factaux n 1)
+    in fact 5;;
+- : Nat =  120
 
 
 (*********PRETTY-PRINTER********)
@@ -75,10 +108,13 @@ letrec sum : Nat -> Nat -> Nat =
     in fact 5;;
 - : Nat = 120
 
-(*************2.2-DEFINICIONES GLOBALES**************)
+(*************Global Definitions Context**************)
 
 >> y = 3;;
 y : Nat = 3
+
+>> x = 2;;
+x : Nat =  2
 
 >> letrec sum: Nat -> Nat -> Nat = 
         lambda n : Nat. lambda m : Nat. if iszero n then m else succ(sum (pred n) m)
@@ -103,7 +139,7 @@ type X =  Bool
 - : X =  true
 
 
-(***************2.3-TIPO STRING**************)
+(***************Type String**************)
 >> "a";;
 - : String = "a"
 
@@ -131,7 +167,7 @@ x : String = "abc"
 - : String = "abcabcabc"
 
 
-(*******************2.4-TUPLAS*****************)
+(*******************Tuples*****************)
  >> x = {1,2,3,"hola"};;
  x : {Nat, Nat, Nat, String} = {1, 2, 3, "hola"}
 
@@ -159,8 +195,8 @@ g : String-> String =  lambda x : String.  x
 >> tuple = {f 3, g "hola", "mundo"};;
 tuple : {Nat,  String,  String} =  {3,  "hola",  "mundo"}
 
- (************2.5-REGISTROS**************)
- >> a=5;;
+ (************Records**************)
+>> a=5;;
 a : Nat = 5
 
 >> b={x=31,y=a};;
@@ -175,7 +211,7 @@ test1 : {x:Nat,y:String,z:Nat} = {x : 2, y : "hola", z : 77}
 >> test1.y;;
 - : String = "hola"
 
-(**********2.7-VARIANTES*********)
+(**********Variants*********)
 
 >> Int = <pos:Nat, zero:Bool, neg:Nat>;;
 type Int =  <pos : Nat,  zero : Bool,  neg : Nat>
@@ -210,13 +246,14 @@ abs : <pos : Nat,  zero : Bool,  neg : Nat>->
 - : <pos : Nat,  zero : Bool,  neg : Nat> =  <pos =  5> as Int
 >> 
 
-(**********2.8-LISTAS***********)
+(**********Lists***********)
 
 >> lstnil = nil[Nat];;
 lstnil : List[Nat] = nil[Nat]
 
 >> x = 4;;
 x : Nat = 4
+
 >> lst1 = cons[Nat] 2 (cons[Nat] 3 (nil[Nat]));;
 lst1 : List[Nat] =  cons[Nat] 2 (cons[Nat] 3 nil[Nat])
 
@@ -242,22 +279,13 @@ lst3 : List[Nat] =  cons[Nat] 4 nil[Nat]
 in len lst1;;
 - : Nat = 2
 
-
 >>cons[Nat] 3 nil[Nat];;
 - : List[Nat] =  cons[Nat] 3 nil[Nat]
 
 >>cons[Nat] 5 (cons[Nat] 3 nil[Nat]);;
 - : List[Nat] =  cons[Nat] 5 (cons[Nat] 3 nil[Nat])
 
->>letrec map : List[Nat] -> (Nat -> Nat) -> List[Nat] =
-lambda lst: List[Nat]. lambda f: (Nat -> Nat). 
-        if (isnil[Nat] (tail[Nat] lst)) then
-                cons[Nat] (f (head[Nat] lst)) (nil[Nat])
-        else
-                cons[Nat] (f (head[Nat] lst)) (map (tail[Nat] lst) f)
-in map lst1 f;;
-- : List[Nat] =  cons[Nat] 2 (cons[Nat] 3 nil[Nat])
-
+MAP
 >> letrec map : List[Nat] -> (Nat -> Nat) -> List[Nat] =
 lambda lst: List[Nat]. lambda f: (Nat -> Nat). 
         if (isnil[Nat] (tail[Nat] lst)) then
@@ -267,13 +295,25 @@ lambda lst: List[Nat]. lambda f: (Nat -> Nat).
 in map lst1 f;;
 - : List[Nat] =  cons[Nat] 2 (cons[Nat] 3 nil[Nat])
 
+APPEND
+>>letrec append: List[Nat] -> List[Nat] -> List[Nat] =
+lambda l1: List[Nat]. lambda l2: List[Nat].
+        if isnil[Nat] l1 then 
+                l2
+        else 
+                cons[Nat] (head[Nat] l1) (append (tail[Nat] l1) l2) 
+in append lst1 lst2;;
+- : List[Nat] = 
+ cons[Nat] 2 (cons[Nat] 3 (cons[Nat] 4 (cons[Nat] 5 nil[Nat])))
+
+LENGTH 
 >> length = letrec len : (List[Nat]) -> Nat = lambda l : List[Nat]. if (isnil[Nat] l) then 0 else (succ (len (tail[Nat] l)))
 in len lst1;;
 length : Nat =  2
 
 
 
-(**********2.9-SUBTIPADO********)
+(**********Subtyping********)
 
 >> a = {x = 1, y = 1, z = {x = 1}};;
 a : {x:Nat,y:Nat,z:{x:Nat}} = {x : 1, y : 1, z : {x : 1}}

@@ -28,22 +28,18 @@ type term =
   | TmString of string 
   | TmConcat of term * term 
   | TmLength of term
-  | TmProjection of term * string
-
-
   | TmTuple of term list
-  
+  | TmProjection of term * string
   | TmRecord of (string * term) list
-
   | TmHead of ty * term
   | TmTail of ty * term
   | TmCons of ty * term * term
   | TmNil of ty
   | TmisEmpty of ty * term
-
   | TmTag of string * term * ty
   | TmCase of term * (string * string * term) list
 ;;
+
 type command = 
   Eval of term 
 | Bind of string * term 
@@ -73,7 +69,6 @@ val typeof : context -> term -> ty;;
 (* 
 val string_of_term : term -> string;; *)
 exception NoRuleApplies;;
-
 
 val eval : context -> term -> term;;
 val execute : context  -> command -> context;;

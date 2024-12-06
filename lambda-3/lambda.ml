@@ -27,22 +27,17 @@ type term =
   | TmApp of term * term
   | TmLetIn of string * term * term
   | TmFix of term 
-  (*Type-String*)
   | TmString of string 
   | TmConcat of term * term 
   | TmLength of term
-  | TmProjection of term * string
-  (* Tuplas*)
   | TmTuple of term list
-  (* Registros*)
+  | TmProjection of term * string
   | TmRecord of (string * term) list
-  (* Listas*)
   | TmHead of ty * term
   | TmTail of ty * term
   | TmCons of ty * term * term
   | TmNil of ty
   | TmisEmpty of ty * term
-  (* Variantes*)
   | TmTag of string * term * ty
   | TmCase of term * (string * string * term) list
 ;;
@@ -93,7 +88,7 @@ exception Type_error of string
 ;; 
 
 let rec base_ty ctx ty = match ty with
-  TyBool -> TyBool
+  TyBool -> TyBool (* Directly return base type *)
   | TyNat -> TyNat
   | TyString -> TyString
   | TyArr (ty1, ty2) -> TyArr (base_ty ctx ty1, base_ty ctx ty2)
@@ -155,7 +150,6 @@ let rec print_type = function
         print_type ty;
         print_string "]";
         close_box ()
-      
     | TyVar s ->
           open_box 1;
           print_string s;
@@ -309,7 +303,6 @@ let rec print_term = function
 
     | term -> print_atomic_term term
 
-(* Print atomic terms *)
 and print_atomic_term = function
 	TmTrue ->
 			open_box 1;
@@ -660,14 +653,14 @@ let rec typeof ctx tm =
         | (tm::t) -> ((typeof ctx tm)::(get_types t))
     in TyTuple (get_types tml)
 
-      (* T-Record*)  
+    (* T-Record*)  
   | TmRecord tmr ->
     let rec get_types = function 
       [] -> []
       |((s,tm)::t) -> ((s,typeof ctx tm)::(get_types t))
     in TyRecord (get_types tmr) 
 
-      (* T-Projection *)
+    (* T-Projection *)
   | TmProjection(t, n) ->
     (match (typeof ctx t, n) with
       | (TyRecord (tyr), s) ->
@@ -678,33 +671,33 @@ let rec typeof ctx tm =
              _ -> raise (Type_error ("cannot project " ^ s ^ ", this key does not exist in the tuple")))
             | _ -> raise (Type_error "Projection is only supported on tuples"))
 
-      (* T-Cons*)
- | TmCons (ty,h,t) ->
+    (* T-Cons*)
+  | TmCons (ty,h,t) ->
         let tyTh = obtTy(typeof ctx h) in
           let tyTt = obtTy(typeof ctx t) in
             if ((subtypeof (tyarrowtolarge(tyTh)) (tyarrowtolarge(obtTy(ty)))) && (subtypeof (TyList(tyarrowtolarge((obtTy ty)))) (tyarrowtolarge(tyTt)))) then 
               TyList(ty) else raise (Type_error "elements of list have different types")
 
-      (* Tm-Head*)
+    (* T-Head*)
   | TmHead (ty,t) ->
       if typeof ctx t = TyList(ty) then ty
       else raise (Type_error ("argument of head is not a List"))
 
-      (* Tm-Tail*)
+    (* T-Tail*)
   | TmTail (ty,t) ->
       if typeof ctx t = TyList(ty) then TyList(ty)
       else raise (Type_error ("argument of tail is not a List"))
 
-      (* Tm-Nil*)
+    (* T-Nil*)
   | TmNil ty ->
       TyList ty
 
-      (* Tm-isEmpty*)
+    (* T-isEmpty*)
   | TmisEmpty (ty,t) ->
       if typeof ctx t = TyList(ty) then TyBool
       else raise (Type_error ("argument of isempty is not a List"))
 
-       (* T-Variant*)
+    (* T-Variant*)
   | TmTag (s, t1, ty) ->
     let tyT1 = base_ty ctx ty in
       (match tyT1 with
@@ -715,7 +708,7 @@ let rec typeof ctx tm =
           else raise (Type_error "field not found")
         | _ -> raise (Type_error "expected variant type"))
 
-  (* T-Case *)
+    (* T-Case *)
   | TmCase (tm,(nametm,p,t1)::l) ->
     let rec buscartipovariable n = function
       TyVariant [] -> raise (Type_error ("Error1"))
@@ -956,9 +949,9 @@ let rec subst x s tm = match tm with
       tm
   | TmisEmpty (ty,t) ->
       TmisEmpty(ty,subst x s t)
-| TmTag (name, t, ty) ->
+  | TmTag (name, t, ty) ->
       TmTag (name, subst x s t, ty)
-| TmCase (t1, l) ->
+  | TmCase (t1, l) ->
         let rec sustincases = function 
         []-> []
         | ((s1,s2,ter)::t) -> ((s1,s2,(subst x s ter))::(sustincases t))
@@ -1067,21 +1060,21 @@ let rec eval1 ctx tm = match tm with
       let t1' = eval1 ctx t1 in 
       TmFix t1' 
 
-    (* T-Concat: new rule for string*)
+    (* new rule for string*)
   |TmConcat (TmString s1, TmString s2) -> 
     TmString (s1 ^ s2 )
 
-    (* T-Concat: new rule for string*)
+    (* new rule for string*)
   |TmConcat (TmString s1, t2) ->
     let t2' = eval1 ctx t2 in 
     TmConcat (TmString s1, t2') 
   
-    (* T-Concat: new rule for string*)
+    (* new rule for string*)
   | TmConcat (t1, t2) -> 
     let t1' = eval1 ctx t1 in 
     TmConcat (t1', t2)
 
-    (* T-Length: new rule for string*)
+    (* new rule for string*)
   | TmLength (TmString s1) ->
     let length = String.length s1 in
     let rec term_of_int n = 
@@ -1095,7 +1088,6 @@ let rec eval1 ctx tm = match tm with
       let t1' = eval1 ctx t1 in
       TmLength t1' 
 
-    (* T-Var*)
   | TmVar s ->    (* Global context*)
     getvbinding ctx s 
 
@@ -1109,6 +1101,7 @@ let rec eval1 ctx tm = match tm with
   | TmProjection (t, s) ->
       let t' = eval1 ctx t in TmProjection (t', s)
   
+    (* E-Tuple*)
   | TmTuple tml -> 
     let rec eval_rcd = function
       [] -> raise NoRuleApplies
@@ -1116,30 +1109,37 @@ let rec eval1 ctx tm = match tm with
      |(tm::t) -> (eval1 ctx tm)::t
     in TmTuple (eval_rcd tml)
 
+    (* E-Record*)
   | TmRecord tmr ->
       let rec eval_rec = function
         [] -> raise NoRuleApplies
         |((s,tm)::t) when isval tm -> (s,tm)::(eval_rec t)
         |((s,tm)::t) -> (s,(eval1 ctx tm))::t
       in TmRecord (eval_rec tmr)
+
+    (* E-Cons*)
   | TmCons(ty,h,t) when isval h -> TmCons(ty,h,(eval1 ctx t))
 
   | TmCons(ty,h,t) -> TmCons(ty,(eval1 ctx h),t)
 
+    (* E-Head*)
   | TmHead(ty,TmCons(_,h,_)) -> h
 
   | TmHead (ty,t) ->
       TmHead(ty, eval1 ctx t)
 
+    (* E-Tail*)
   | TmTail(ty,TmCons(_,_,t)) -> t
 
   | TmTail (ty,t) ->
       TmTail(ty, eval1 ctx t)
+    
+    (*E-isEmpty*)
   | TmisEmpty(ty,TmNil(_)) -> TmTrue
   | TmisEmpty(ty,TmCons(_,_,_)) -> TmFalse
   | TmisEmpty(ty,t) -> TmisEmpty(ty,eval1 ctx t)
 
-   (* E-Tag *)
+    (* E-Tag *)
   | TmTag (name, t, ty) ->
     let t' = eval1 ctx t in
     TmTag (name, t', ty)
@@ -1169,7 +1169,7 @@ let rec eval ctx tm =
     NoRuleApplies -> apply_ctx ctx tm
 ;;
 
-let execute ctx = function  (*cg*)
+let execute ctx = function  
   | Eval tm ->
     let tyTm = typeof ctx tm in
       let tm' = eval ctx tm in

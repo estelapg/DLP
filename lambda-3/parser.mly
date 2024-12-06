@@ -111,7 +111,6 @@ appTerm :
   | CONS LBRACKET ty RBRACKET pathTerm pathTerm
        { TmCons ($3, $5, $6) }
 
-
 pathTerm :
      NIL LBRACKET ty RBRACKET
       { TmNil ($3) }
@@ -161,11 +160,11 @@ atomicTy :
       { TyString }
   | LBRACE tupleTY RBRACE
       { TyTuple $2 }
-  | LBRACE recordTY RBRACE
+  | LBRACE recordType RBRACE
       { TyRecord $2 }
   | LIST LBRACKET ty RBRACKET
       { TyList $3 }
-  | LARROW nonEmptyRecordTY RARROW
+  | LARROW nonEmptyRecordType RARROW
       { TyVariant $2 }
   | IDV 
     {TyString }
@@ -197,15 +196,15 @@ nonemptyrec :
         { ($1, $3) :: $5 }
 
 
-recordTY :
+recordType :
 		{ [] }
-	| nonEmptyRecordTY
+	| nonEmptyRecordType
 		{ $1 }
 
-nonEmptyRecordTY :
+nonEmptyRecordType :
 	IDV COLON ty
 			{ [($1, $3)] }
-	| IDV COLON ty COMMA nonEmptyRecordTY
+	| IDV COLON ty COMMA nonEmptyRecordType
 			{ ($1, $3) :: $5 }
 
 casesTerm :
